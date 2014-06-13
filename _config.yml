@@ -1,0 +1,11 @@
+# Site settings
+title: Personal home page
+email: henrikmidtiby@gmail.com
+description: "Personal site of Henrik Skov Midtiby containing contributions to open source software and scientific publications."
+baseurl: "/"
+url: "http://henrikmidtiby.github.io"
+
+# Build settings
+markdown: kramdown
+permalink: pretty
+auto: true
