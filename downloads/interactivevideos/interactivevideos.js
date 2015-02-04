@@ -30,6 +30,11 @@ function readyFunction() {
 	timerInterval = setInterval(showTimeStamp, 1000);
 
 	$("#removeQuestions").click(removeQuestions);
+	$("#frameOverlay").mousemove(function( event ) {
+		var msg = "Handler for .mousemove() called at ";
+		msg += event.pageX + ", " + event.pageY;
+		$("#cursorPosition").text(msg);
+	});
 }
 
 var player;
