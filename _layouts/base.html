@@ -8,31 +8,40 @@
     <link rel="stylesheet" type="text/css" href="../css/style.css" />
 </head>
 <body>
-<div id="page">
-<ul id="nav">
-<li><a href="../home">Home</a></li>
-<!-- <li><a href="research.html">Research</a></li>
-<ul>
-<li><a href="plantrecognition.html">Plant recognition</a></li>
-<li><a href="shapeclassification.html">Shape classification</a></li>
-</ul>
-<li><a href="teaching.html">Teaching</a></li>
-<ul>
-<li><a href="mathematicsandphysics.html">Mathematics and physics</a></li>
-</ul>
-<ul>
-<li><a href="../latex">Latex</a></li>
-<li><a href="../todonotes">Todonotes</a></li>
--->
-<li><a href="../texworksautocompletion">TeXworks autocompletion</a></li>
-<!--</ul>-->
-<li><a href="../publications">Publications</a></li>
-<li><a href="../presentations">Presentations</a></li>
-<li><a href="../contact">Contact</a></li>
-</ul>
-<body>
-    <div id="maincontent">
-        {{ content }}
+  <div id="main">
+      {{ content }}
+    <div id="footer">
+      <span style="float: right">
+      &copy; 2015 Henrik Skov Midtiby
+      </span>
     </div>
+  </div>
+
+  <div id="sidebar">
+    <nav>
+      <div class="mainmenucontent">
+        <h2><a href="..">Home</a></h2>
+        <ul>
+          <li><a href="../contact">Contact</a></li>
+        </ul>
+        <h2>Research</h2>
+        <ul>
+          <li><a href="../publications">Publications</a></li>
+          <li><a href="../presentations">Presentations</a></li>
+<!--          <li><a href="plantrecognition.html">Plant recognition</a></li> -->
+<!--          <li><a href="shapeclassification.html">Shape classification</a></li> -->
+        </ul>
+        <h2>Software</h2>
+        <ul>
+          <li><a href="../texworksautocompletion">TeXworks autocompletion</a></li>
+<!--          <li><a href="../todonotes">Todonotes</a></li> -->
+        </ul>
+        <h2><a href="../teaching">Teaching</a></h2>
+<!--          <li><a href="mathematicsandphysics.html">Mathematics and physics</a></li> -->
+      </div>
+    </nav>
+  </div>
+
+
 </body>
 </html>

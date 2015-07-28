@@ -1,51 +1,206 @@
-#page
-{
-        width:          800px;
-        min-height:     400px;
-        margin-left:    auto;
-        margin-right:   auto;
-        border-style:   solid;
-        border-width:   1px;
-        border-color:   black;
+#main {
+  position: absolute;
+  max-width: 650px; }
+
+  #sidebar {
+    padding: 25px 20px 0 0;
+    z-index: 20;
+    position: absolute; }
+    #sidebar nav .mainmenuicon {
+      display: none; }
+      #sidebar nav .mainmenucontent {
+        display: block;
+        background: white; }
+        #sidebar nav:hover .mainmenucontent {
+          display: block; }
+
+@media print {
+  #sidebar {
+    visibility: hidden;   }
+    #main {
+      left: 0px;   }
+      .post_nav {
+        visibility: hidden;   }
 }
 
-#maincontent 
-{
-        margin-left:    250px;
+@media screen and (max-width: 840px) {
+  #sidebar {
+    width: 160px;
+    padding: 10px 10px;
+    text-align: left;   }
+    #sidebar nav .mainmenucontent {
+      display: none;
+      padding: 10px;
+      box-shadow: 4px 4px 4px #aaa;
+      border: 1px solid #aaa;   }
+      #sidebar nav .mainmenuicon {
+        display: inline;   }
+  #main {
+    left: 0px;
+    top: 30px;
+    padding: 20px 10px;   }
+}
+@media screen and (min-width: 840px) {
+  #sidebar {
+    text-align: right;   }
+    #main {
+      border-left: 1px solid #ccc;   }
+}
+    @media screen and (min-width: 840px) and (max-width: 960px) {
+      #sidebar {
+        width: 120px;   }
+        #main {
+          left: 140px;
+          padding: 20px 20px;   }
+}
+@media screen and (min-width: 840px) and (min-width: 960px) {
+  #sidebar {
+    width: 200px;   }
+    #main {
+      left: 220px;
+      padding: 20px 40px;   }
 }
 
-#nav
-{
-        position:       fixed;
-        top:            100px;
-        float:          left;
-        list-style:     none;
-        margin-left:    5px;
-        padding-left:   1em;
-        text-indent:    -1em;
-}
+#footer {
+  margin-top: 60px;
+  position: relative; }
 
-#nav li
-{
-        margin-top:     5px;
-}
+  @font-face {
+    font-family: "Open Sans";
+    font-style: normal;
+    font-weight: 300;
+    src: local("Open Sans Light"), url("/media/fonts/OpenSans-Light.ttf") format("truetype"); }
 
-#nav a
-{
-        text-decoration: none;
-        color:          black;
-}
+    @font-face {
+      font-family: "Open Sans";
+      font-style: normal;
+      font-weight: 400;
+      src: local("Open Sans"), url("/media/fonts/OpenSans-Regular.ttf") format("truetype"); }
 
-#nav a:hover
-{
-        color:          red;
-}
+      @font-face {
+        font-family: "Open Sans";
+        font-style: normal;
+        font-weight: 700;
+        src: local("Open Sans Bold"), url("/media/fonts/OpenSans-Bold.ttf") format("truetype"); }
 
-#nav ul
-{
-        list-style:     none;
-        margin-left:    0;
-        padding-left:   1em;
-        text-indent:    -1em;
-}
+        body {
+          font-family: 'Open Sans', sans-serif;
+          font-size: 10.5pt; }
 
+          #main h1 {
+            font-size: 2.5em;
+            font-weight: lighter;
+            color: #444; }
+            #main h1 a {
+              color: #444;
+              text-decoration: none; }
+          #main h2 {
+            font-size: 1.75em;
+            font-weight: normal;
+            color: #333; }
+            #main h3 {
+              font-size: 1.35em;
+              font-weight: normal; }
+              #main a {
+                color: #0645ad;
+                text-decoration: none; }
+                #main nav.post_nav a {
+                  color: #888; }
+                  #main nav.post_nav a.disabled {
+                    color: #ccc; }
+                    #main header {
+                      font-size: small;
+                      color: #888;
+                      border-bottom: 1px solid #888; }
+                      #main .footnote {
+                        font-size: small; }
+                        #main .footnote ol {
+                          padding-left: 20px; }
+          #main time {
+            font-size: small;
+            color: #888; }
+
+#sidebar ul {
+  list-style: none;
+  margin-top: 0ex;
+  padding-left: 1ex;
+  padding-right: 1ex; }
+  #sidebar a {
+    text-decoration: none;
+    color: black; }
+    #sidebar h2 {
+      font-size: 1.2em;
+      text-transform: uppercase;
+      letter-spacing: 0.3ex;
+      font-weight: normal;
+      margin-bottom: 1ex; }
+
+.listing h3 {
+  margin: 0em;
+  margin-top: 1em; }
+  .listing h3 a {
+    font-size: 10.5pt;
+    font-weight: bold; }
+.listing .blog_excerpt p {
+  margin: 0.5em 0; }
+
+#sidebar a:hover, a:hover {
+  color: #09e; }
+
+  #footer {
+    font-size: small;
+    color: #888;
+    border-top: 1px solid #888; }
+
+    .post img {
+      max-width: 100%; }
+
+.fig-floating-center {
+  float: center;
+  margin: 5px 0px 5px 8px; }
+
+  .fig-floating-right {
+    float: right;
+    margin: 5px 0px 5px 8px; }
+
+    a.backlink:before {
+      content: 'â†'; }
+
+      a.prev:before {
+        content: 'Â«'; }
+
+        a.next:after {
+          content: 'Â»'; }
+
+          a.backlink {
+            display: block;
+            line-height: 24px; }
+
+            a.prev {
+              margin-right: 12px;
+              float: left; }
+
+              a.next {
+                float: right; }
+
+                .codebox {
+                  font-size: 0.8em; }
+
+                  .code {
+                    position: relative;
+                    border-radius: 4px;
+                    border: 1px solid #ccc;
+                    background-color: #F0F3F3;
+                    margin: 0px;
+                    padding: 1ex; }
+                    .code pre {
+                      margin: 0px; }
+                      .code .highlight {
+                        overflow: auto; }
+                        .code figcaption {
+                          position: absolute;
+                          right: 1ex;
+                          bottom: 1ex;
+                          text-align: right;
+                          color: grey;
+                          font-size: smaller; }
