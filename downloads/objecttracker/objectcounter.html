@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="opencv.js"></script>
+  <script type="text/javascript" src="jquery-2.1.0.js"></script>
+  <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
+  
+  <style type="text/css">
+    body{
+    color:#666;
+    margin: 10px;
+}
+#drop {
+    border: 1px dashed #ccc;
+    width: 450px;
+    min-height: 35px;
+    top-margin: 0px;
+    -webkit-border-radius: 4px;
+    -moz-border-radius: 4px;
+    border-radius: 4px;
+    display:box;
+    cursor:pointer;
+}
+#status {
+    width:450px;
+    top-margin: 0px;
+}
+.msg-drop{
+    padding:10px;
+}
+#fileBox{
+    display:none;
+}
+  </style>
+
+  <title></title>
+
+
+
+
+<script type='text/javascript'>//<![CDATA[
+
+$(window).load(function(){
+    $('#drop').click(function(){
+        console.log('click');
+        $('#fileBox').trigger('click');
+    });
+});
+if (window.FileReader) {
+    var drop;
+    addEventHandler(window, 'load', function () {
+        var status = document.getElementById('status');
+        drop = document.getElementById('drop');
+
+        function cancel(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            return false;
+        }
+
+        // Tells the browser that we *can* drop on this target
+        addEventHandler(drop, 'dragover', cancel);
+        addEventHandler(drop, 'dragenter', cancel);
+
+        addEventHandler(drop, 'drop', function (e) {
+            e = e || window.event; // get window.event if e argument missing (in IE)   
+            if (e.preventDefault) {
+                e.preventDefault();
+            } // stops the browser from redirecting off to the image.
+
+            var dt = e.dataTransfer;
+            var files = dt.files;
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var reader = new FileReader();
+
+                //attach event handlers here...
+
+                reader.readAsDataURL(file);
+                addEventHandler(reader, 'loadend', function (e, file) {
+                    console.log('test');
+                    var bin = this.result;
+                                        
+                    status.innerHTML = 'Done loading.';
+
+                    var image = document.getElementById("imageInput");
+                    image.file = file;
+                    image.src = bin;
+
+                    count_objects_in_image()
+                }.bindToEventHandler(file));
+            }
+            return false;
+        });
+        Function.prototype.bindToEventHandler = function bindToEventHandler() {
+            var handler = this;
+            var boundParameters = Array.prototype.slice.call(arguments);
+            //create closure
+            return function (e) {
+                e = e || window.event; // get window.event if e argument missing (in IE)   
+                boundParameters.unshift(e);
+                handler.apply(this, boundParameters);
+            }
+        };
+    });
+} else {
+    document.getElementById('status').innerHTML = 'Your browser does not support the HTML5 FileReader.';
+}
+
+
+function addEventHandler(obj, evt, handler) {
+    if (obj.addEventListener) {
+        // W3C method
+        obj.addEventListener(evt, handler, false);
+    } else if (obj.attachEvent) {
+        // IE method.
+        obj.attachEvent('on' + evt, handler);
+    } else {
+        // Old school method.
+        obj['on' + evt] = handler;
+    }
+}
+
+
+//]]> 
+
+</script>
+
+  
+</head>
+
+<body>
+<h1>Object counter</h1>
+<p>Developed by Henrik Skov Midtiby, hemi@mmmi.sdu.dk</p>
+
+<h2>User guide</h2>
+<p>1. Find an image file on your computer.</p>
+<p>2. Drag the file onto the field "Drop image file here"</p>
+<p>3. Press the start button.</p>
+<table cellpadding="0" cellspacing="0" width="0" border="0">
+<tr>
+<td>
+	<div id="drop"> 
+		<div class="msg-drop">
+			Drop image file here.
+		</div>
+	</div>
+	<input id="fileBox" type="file"/>    
+	<div id="status"></div>
+</td>
+</tr>
+<tr>
+<td>
+<img id="imageInput"/>
+</td>
+</tr>
+</table>
+
+<h2>Coordinates, area and perimeter of objects</h2>
+<div id="tracked_coordinates_ID"></div>
+
+<script>
+let tracked_coordinates = document.getElementById('tracked_coordinates_ID');
+
+tracked_coordinates.innerHTML += '';
+
+function count_objects_in_image()
+{
+  let src = cv.imread('imageInput');
+  
+  cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+  cv.threshold(src, src, 120, 255, cv.THRESH_BINARY);
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat();
+
+  // You can try more different parameters
+  cv.findContours(src, contours, hierarchy, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE);
+
+  // draw contours with random Scalar
+  tracked_coordinates.innerHTML = 'Id\tArea\tPerimeter<br>\n';
+  for (let i = 0; i < contours.size(); ++i) {
+    let cnt = contours.get(i);
+    // You can try more different parameters
+    let area = cv.contourArea(cnt, false);
+    let perimeter = cv.arcLength(cnt, false);
+    tracked_coordinates.innerHTML += i + '\t' + area + '\t' + perimeter.toFixed(1) + "<br>\n";
+  }
+}
+
+</script>
+
+</body>
+
+</html>
+
+
