@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sketch Overlay</title>
+<style>
+  :root {
+    --ui-bg: rgba(20, 20, 25, 0.75);
+    --ui-fg: #f2f2f7;
+    --accent: #4da3ff;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ui-fg); }
+
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  #cam, #photoCanvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #photoCanvas { object-fit: fill; }
+
+  .panel {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    background: var(--ui-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px; padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+    transition: opacity .25s, transform .25s; z-index: 10;
+  }
+  .panel.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
+  #topBar { top: calc(var(--safe-top) + 10px); }
+  #bottomBar { bottom: calc(var(--safe-bottom) + 10px); }
+
+  button {
+    background: rgba(255,255,255,0.12); border: none; color: var(--ui-fg);
+    border-radius: 10px; padding: 10px 14px; font-size: 15px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  button:active { background: rgba(255,255,255,0.25); }
+  button.primary { background: var(--accent); color: #fff; }
+  button.toggled { background: var(--accent); color: #fff; }
+
+  #opacityControl { display: flex; align-items: center; gap: 8px; }
+  #opacitySlider { width: min(180px, 40vw); accent-color: var(--accent); }
+
+  #startScreen {
+    position: fixed; inset: 0; z-index: 20; background: #111;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px; padding: 30px; text-align: center;
+  }
+  #startScreen h1 { font-size: 24px; font-weight: 700; }
+  #startScreen p { font-size: 15px; color: #aaa; max-width: 34ch; line-height: 1.5; }
+  #startError { color: #ff6b6b; font-size: 14px; max-width: 40ch; display: none; }
+
+  #hint {
+    position: fixed; top: calc(var(--safe-top) + 64px); left: 50%; transform: translateX(-50%);
+    background: var(--ui-bg); padding: 6px 14px; border-radius: 12px; font-size: 13px;
+    z-index: 10; transition: opacity .4s; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>Sketch Overlay</h1>
+  <p>Pick a photo, then mix it with the live camera — point the phone at your paper and sketch with the photo as a ghost overlay.</p>
+  <input type="file" id="fileInput" accept="image/*" style="display:none">
+  <button id="pickBtn" class="primary">📷 Choose photo & start</button>
+  <p id="startError"></p>
+</div>
+
+<div id="stage">
+  <video id="cam" autoplay playsinline muted></video>
+  <canvas id="photoCanvas"></canvas>
+</div>
+
+<div id="hint" style="opacity:0">One finger: move · Two fingers: pan, rotate & zoom</div>
+
+<div class="panel hidden" id="topBar">
+  <button id="freezeBtn">⏸ Freeze</button>
+  <button id="hideBtn">🙈 Hide UI</button>
+</div>
+
+<div class="panel hidden" id="bottomBar">
+  <div id="opacityControl">
+    <span style="font-size:13px">Photo</span>
+    <input type="range" id="opacitySlider" min="0" max="100" value="50">
+    <span id="opacityVal" style="font-size:13px; min-width:3ch; text-align:right">50%</span>
+  </div>
+  <button id="resetBtn" title="Reset photo position">⟲</button>
+  <button id="newPhotoBtn">🖼 New</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var cam = document.getElementById('cam');
+  var photoCanvas = document.getElementById('photoCanvas');
+  var ctx = photoCanvas.getContext('2d');
+  var fileInput = document.getElementById('fileInput');
+  var pickBtn = document.getElementById('pickBtn');
+  var startScreen = document.getElementById('startScreen');
+  var startError = document.getElementById('startError');
+  var freezeBtn = document.getElementById('freezeBtn');
+  var hideBtn = document.getElementById('hideBtn');
+  var newPhotoBtn = document.getElementById('newPhotoBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var opacitySlider = document.getElementById('opacitySlider');
+  var opacityVal = document.getElementById('opacityVal');
+  var topBar = document.getElementById('topBar');
+  var bottomBar = document.getElementById('bottomBar');
+  var hint = document.getElementById('hint');
+  var stream = null;
+  var frozen = false;
+  var uiHidden = false;
+  var wakeLock = null;
+
+  // Photo transform state (normalized to canvas pixels)
+  var img = null;
+  var tx = 0, ty = 0, scale = 1, baseScale = 1, rot = 0;
+  var canvasW = 0, canvasH = 0;
+
+  function resizeCanvas() {
+    canvasW = photoCanvas.clientWidth;
+    canvasH = photoCanvas.clientHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    photoCanvas.width = Math.round(canvasW * dpr);
+    photoCanvas.height = Math.round(canvasH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawPhoto();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function fitScale() {
+    if (!img) return 1;
+    // Fit photo inside screen, then let scale multiply
+    var s = Math.min(canvasW / img.width, canvasH / img.height);
+    return s;
+  }
+
+  function drawPhoto() {
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    if (!img) return;
+    ctx.save();
+    ctx.globalAlpha = opacitySlider.value / 100;
+    ctx.translate(canvasW / 2 + tx, canvasH / 2 + ty);
+    ctx.scale(scale, scale);
+    ctx.rotate(rot);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    ctx.restore();
+  }
+
+  opacitySlider.addEventListener('input', function () {
+    opacityVal.textContent = opacitySlider.value + '%';
+    drawPhoto();
+  });
+
+  function loadFile(f) {
+    var url = URL.createObjectURL(f);
+    var im = new Image();
+    im.onload = function () {
+      img = im;
+      tx = 0; ty = 0;
+      baseScale = fitScale();
+      scale = baseScale;
+      resizeCanvas();
+      startScreen.style.display = 'none';
+      topBar.classList.remove('hidden');
+      bottomBar.classList.remove('hidden');
+      hint.style.opacity = 1;
+      setTimeout(function () { hint.style.opacity = 0; }, 3500);
+      URL.revokeObjectURL(url);
+    };
+    im.onerror = function () {
+      showStartError('Could not read that image file.');
+      URL.revokeObjectURL(url);
+    };
+    im.src = url;
+  }
+
+  pickBtn.addEventListener('click', function () {
+    fileInput.value = '';
+    fileInput.click();
+  });
+  newPhotoBtn.addEventListener('click', function () {
+    fileInput.value = '';
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) {
+      startCamera().then(function () { loadFile(fileInput.files[0]); });
+    }
+  });
+
+  function showStartError(msg) {
+    startError.textContent = msg;
+    startError.style.display = 'block';
+  }
+
+  function startCamera() {
+    if (stream) return Promise.resolve();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showStartError('This browser does not support camera access (getUserMedia).');
+      return Promise.reject(new Error('no getUserMedia'));
+    }
+    var constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    };
+    return navigator.mediaDevices.getUserMedia(constraints).then(function (s) {
+      stream = s;
+      cam.srcObject = s;
+      return cam.play();
+    }).then(function () {
+      requestWakeLock();
+    }).catch(function (err) {
+      var name = err && err.name ? err.name : 'Error';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        showStartError('Camera permission denied. Allow camera access for this site in Settings → Safari (or your browser) → Camera, then reload.');
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        showStartError('No usable camera found. Try again without photo selection, or allow camera access.');
+      } else {
+        showStartError('Camera error: ' + name + '. A secure (https) connection is required for camera access.');
+      }
+      throw err;
+    });
+  }
+
+  function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function (wl) {
+      wakeLock = wl;
+      wl.addEventListener('release', function () { wakeLock = null; });
+    }).catch(function () { /* non-critical */ });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && stream && !wakeLock) requestWakeLock();
+  });
+
+  // Freeze: pause the underlying video element (frame stays on last rendered frame)
+  freezeBtn.addEventListener('click', function () {
+    frozen = !frozen;
+    if (frozen) { cam.pause(); freezeBtn.textContent = '▶ Resume'; freezeBtn.classList.add('toggled'); }
+    else { cam.play(); freezeBtn.textContent = '⏸ Freeze'; freezeBtn.classList.remove('toggled'); }
+  });
+
+  // Hide UI: single tap anywhere brings it back
+  hideBtn.addEventListener('click', function () {
+    uiHidden = true;
+    topBar.classList.add('hidden');
+    bottomBar.classList.add('hidden');
+  });
+
+  resetBtn.addEventListener('click', function () {
+    tx = 0; ty = 0;
+    scale = baseScale || fitScale();
+    rot = 0;
+    drawPhoto();
+  });
+
+  // --- Gestures on the stage ---
+  // One finger: pan. Two fingers: pan + rotate + zoom around the finger midpoint
+  // (the image point under the midpoint stays pinned while scaling/rotating).
+  var pointers = {};
+  var gesture = null;
+
+  function pointDist(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.hypot(dx, dy);
+  }
+  function pointAngle(a, b) {
+    return Math.atan2(b.y - a.y, b.x - a.x);
+  }
+  function pointMid(a, b) {
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+  function pointerIds() { return Object.keys(pointers); }
+
+  var stage = document.getElementById('stage');
+  stage.addEventListener('pointerdown', function (e) {
+    if (!img) return;
+    try { stage.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers may not be capturable */ }
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = pointerIds();
+    if (ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      var mid = pointMid(a, b);
+      var cx = canvasW / 2, cy = canvasH / 2;
+      // Image-space vector (unrotated, unscaled) from image center to the point under the gesture midpoint
+      var cos = Math.cos(-rot), sin = Math.sin(-rot);
+      var wx = mid.x - cx - tx, wy = mid.y - cy - ty;
+      gesture = {
+        d0: pointDist(a, b),
+        a0: pointAngle(a, b),
+        mid0: mid,
+        s0: scale, r0: rot, tx0: tx, ty0: ty,
+        qx: (wx * cos - wy * sin) / scale,
+        qy: (wx * sin + wy * cos) / scale
+      };
+    } else {
+      gesture = null;
+    }
+  });
+
+  stage.addEventListener('pointermove', function (e) {
+    if (!img || !pointers[e.pointerId]) return;
+    var prev = pointers[e.pointerId];
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = pointerIds();
+    if (ids.length === 1) {
+      tx += e.clientX - prev.x;
+      ty += e.clientY - prev.y;
+    } else if (ids.length === 2 && gesture) {
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      var mid = pointMid(a, b);
+      var cx = canvasW / 2, cy = canvasH / 2;
+      if (gesture.d0 > 0) {
+        scale = Math.max(gesture.s0 * 0.2, Math.min(gesture.s0 * 8, gesture.s0 * (pointDist(a, b) / gesture.d0)));
+      }
+      rot = gesture.r0 + (pointAngle(a, b) - gesture.a0);
+      // Keep the image point under the midpoint pinned: t = mid - C - s·R(rot)·q
+      var cos = Math.cos(rot), sin = Math.sin(rot);
+      tx = mid.x - cx - scale * (gesture.qx * cos - gesture.qy * sin);
+      ty = mid.y - cy - scale * (gesture.qx * sin + gesture.qy * cos);
+    }
+    drawPhoto();
+  });
+
+  function endPointer(e) {
+    delete pointers[e.pointerId];
+    if (pointerIds().length < 2) gesture = null;
+  }
+  stage.addEventListener('pointerup', endPointer);
+  stage.addEventListener('pointercancel', endPointer);
+
+  // Tap (no drag) restores the UI when hidden
+  stage.addEventListener('click', function () {
+    if (uiHidden) {
+      uiHidden = false;
+      topBar.classList.remove('hidden');
+      bottomBar.classList.remove('hidden');
+    }
+  });
+
+  // Prevent iOS gestures (double-tap zoom, pinch page zoom) from fighting the app
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('touchmove', function (e) {
+    if (e.target.closest('.panel') === null) e.preventDefault();
+  }, { passive: false });
+
+  // Kick the canvas size early so it's ready when a photo lands
+  resizeCanvas();
+
+  // Debug/testing hook (harmless in production)
+  window.__getXform = function () {
+    return { tx: tx, ty: ty, scale: scale, rot: rot, baseScale: baseScale, canvasW: canvasW, canvasH: canvasH };
+  };
+  window.__debugLoadImage = function (file) { loadFile(file); };
+  window.__debugSetUiHidden = function (h) {
+    uiHidden = h;
+    topBar.classList.toggle('hidden', h);
+    bottomBar.classList.toggle('hidden', h);
+  };
+  window.__debugUiHidden = function () { return uiHidden; };
+})();
+</script>
+</body>
+</html>
