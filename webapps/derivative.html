@@ -146,6 +146,26 @@
     text-align:center; padding:10px 16px 14px}
   footer a{color:var(--muted)}
   footer a:hover{color:var(--ink)}
+  /* tutorial coach */
+  #coach{
+    position:fixed; z-index:80; max-width:280px; background:var(--panel);
+    border:1px solid var(--amber); border-radius:6px; padding:12px 16px;
+    font-size:14px; color:var(--ink); box-shadow:0 4px 18px rgba(0,0,0,.5);
+    display:none; pointer-events:none;
+  }
+  #coach.show{display:block}
+  #coach .c-title{color:var(--amber); font-size:12px; letter-spacing:.06em;
+    text-transform:uppercase; margin-bottom:5px}
+  #coach .c-arrow{position:absolute; width:12px; height:12px; background:var(--panel);
+    border:solid var(--amber); transform:rotate(45deg)}
+  #coach .c-arrow.above{top:-7px; left:28px; border-width:0 1px 1px 0}
+  #coach .c-arrow.below{bottom:-7px; left:28px; border-width:1px 0 0 1px}
+  .tut-spot{position:relative; z-index:75; outline:2px solid var(--amber) !important;
+    outline-offset:3px; border-radius:5px; animation:tutpulse 1.2s infinite}
+  @keyframes tutpulse{
+    0%,100%{outline-offset:3px; outline-color:var(--amber)}
+    50%{outline-offset:7px; outline-color:#7a5a1e}
+  }
   @media (prefers-reduced-motion: reduce){
     #stage.shake,.card.wrong,#expr.pop,.shot{animation:none !important}
   }
@@ -175,6 +195,7 @@
 </main>
 
 <div id="toast"></div>
+<div id="coach"><div class="c-title" id="coachTitle"></div><div id="coachText"></div><div class="c-arrow above" id="coachArrAbove"></div><div class="c-arrow below" id="coachArrBelow"></div></div>
 
 <div class="overlay" id="doneOverlay">
   <div class="panel">
@@ -482,7 +503,15 @@ function latex(node, selId){
     }
     case 'fn': {
       const f = FN_TEX[node.name];
-      return node.name==='exp' ? `\\mathrm{e}^{${latex(node.arg,selId)}}` : `${f}\\left(${latex(node.arg,selId)}\\right)`;
+      if (node.name==='exp'){
+        // e^(...) — always keep the argument visibly grouped: e^{x^{2}} reads
+        // ambiguously as (e^x)^2, so wrap non-atomic arguments in parentheses
+        const arg = node.arg;
+        const atomic = arg.t==='var' || arg.t==='num';
+        const inner = atomic ? latex(arg,selId) : `\\left(${latex(arg,selId)}\\right)`;
+        return `\\mathrm{e}^{${inner}}`;
+      }
+      return `${f}\\left(${latex(node.arg,selId)}\\right)`;
     }
     case 'pend':
       return `\\htmlData{pid=${node.id}}{\\htmlClass{pending${node.id===selId?' sel':''}}{` +
@@ -575,6 +604,7 @@ $('expr').addEventListener('click', ev => {
   if (!t) return;
   selId = parseInt(t.dataset.pid, 10);
   render();
+  tutorialOnAim();
 });
 
 function toast(msg, cls){
@@ -726,6 +756,7 @@ function loadLevel(i){
   });
   $('doneOverlay').classList.remove('show');
   render(); hud();
+  maybeAutoTutorial();
 }
 
 function levelCleared(){
@@ -849,6 +880,114 @@ document.addEventListener('keydown', ev=>{
   const r = activeRules.find(r => r.key === ev.key);
   if (r) fire(r);
 });
+
+/* ---------------- tutorial coach ---------------- */
+let coachSpot = null;          // element currently spotlighted
+function coachShow(title, text, el, arrowAbove){
+  coachHide();
+  $('coachTitle').textContent = title;
+  $('coachText').textContent = text;
+  $('coach').classList.add('show');
+  positionCoach(el, arrowAbove);
+  if (el){ el.classList.add('tut-spot'); coachSpot = el; }
+}
+function positionCoach(el, arrowAbove){
+  const c = $('coach');
+  if (!el){ c.style.left = '50%'; c.style.top = '90px'; c.style.transform = 'translateX(-50%)'; return; }
+  const r = el.getBoundingClientRect();
+  c.style.transform = 'none';
+  let left = Math.min(Math.max(12, r.left + r.width/2 - 140), innerWidth - 300);
+  let top;
+  if (arrowAbove){                     // coach bubble sits BELOW the element
+    top = r.bottom + 14;
+    $('coachArrAbove').style.display = '';
+    $('coachArrBelow').style.display = 'none';
+  } else {                             // bubble sits ABOVE the element
+    top = r.top - c.offsetHeight - 14;
+    if (top < 8) top = r.bottom + 14;
+    $('coachArrAbove').style.display = top > r.bottom ? 'none' : '';
+    $('coachArrBelow').style.display = top > r.bottom ? '' : 'none';
+  }
+  c.style.left = left + 'px';
+  c.style.top = top + 'px';
+}
+function coachHide(){
+  $('coach').classList.remove('show');
+  // remove the spotlight from every highlighted element — coachSpot may have been
+  // reassigned during a multi-phase guide, leaving older spots behind otherwise
+  document.querySelectorAll('.tut-spot').forEach(e => e.classList.remove('tut-spot'));
+  coachSpot = null;
+}
+addEventListener('resize', ()=>{ if ($('coach').classList.contains('show') && coachSpot) positionCoach(coachSpot, $('coachArrAbove').style.display !== 'none'); });
+
+/* One guided step: aim at the first pending derivative (highlighted) and WAIT
+   for the user to click it; then spotlight the matching rule card and WAIT for
+   that click. The coach listens to the real interaction, so the user performs
+   the moves themselves. */
+let tutorial = null;             // {phase:'aim'|'fire', rule, cardEl} or null
+
+function tutorialOnAim(){
+  if (!tutorial || tutorial.phase !== 'aim') return;
+  const t = tutorial; tutorial = null;
+  coachHide();
+  coachShow('Step 2 of 2 — fire the rule',
+    `Now click the highlighted card: ${t.rule.name} (key ${t.rule.key}).`,
+    t.cardEl, false);
+  tutorial = {phase:'fire', rule:t.rule, cardEl:t.cardEl, pendId: selId};
+}
+// intercept rule-card clicks while the tutorial waits for the fire click
+document.addEventListener('click', ev => {
+  if (!tutorial || tutorial.phase !== 'fire') return;
+  const card = ev.target.closest('.card');
+  if (!card || card.dataset.rule !== tutorial.rule.id) {
+    // wrong card clicked during tutorial — nudge, don't punish
+    const cardEl = tutorial.cardEl;
+    coachShow('Almost', `Use the highlighted ${tutorial.rule.name} card.`, cardEl, false);
+    ev.stopPropagation();
+    ev.preventDefault();
+    return;
+  }
+  tutorial = null;   // let the real click fire the rule; coach hides after the shot
+}, true);
+// hide the coach once the guided shot has landed
+const _origResolve = resolve;
+resolve = function(rule, target){
+  const guided = tutorial === null;   // null means the fire click already passed the gate
+  _origResolve(rule, target);
+  if (guided) coachHide();
+};
+
+function showNextStep(){
+  if (!activeRules){ return; }
+  const pends = collectPends(tree);
+  if (!pends.length){ toast('Nothing pending — this level is already solved.', ''); return; }
+  const rule = activeRules.find(r => r.id !== 'tidy' && r.match(pends[0].inner));
+  const cardEl = rule ? document.querySelector(`.card[data-rule="${rule.id}"]`) : null;
+  if (!rule || !cardEl){ toast('No automatic hint available for this term.', ''); return; }
+  const el = document.querySelector(`[data-pid="${pends[0].id}"]`);
+  coachShow('Step 1 of 2 — aim',
+    'Click here: the highlighted pending derivative.', el, false);
+  tutorial = {phase:'aim', rule, cardEl};
+}
+
+const tutBtn = document.createElement('button');
+tutBtn.className = 'lvlbtn'; tutBtn.textContent = '▶ Show next step';
+tutBtn.style.borderColor = 'var(--amber)'; tutBtn.style.color = 'var(--amber)';
+tutBtn.addEventListener('click', showNextStep);
+tutBtn.title = 'Play one guided move: aim, then fire the matching rule';
+$('levels').appendChild(tutBtn);
+
+/* auto-tutorial: run the guided demo once, the very first time level 1 loads */
+let tutorialAutoRun = false;
+function maybeAutoTutorial(){
+  if (tutorialAutoRun) return;
+  try {
+    if (localStorage.getItem('rs-dx-tutorial-done')) return;
+  } catch(e){ /* private mode: still run once per session */ }
+  tutorialAutoRun = true;
+  try { localStorage.setItem('rs-dx-tutorial-done', '1'); } catch(e){}
+  setTimeout(()=>{ if (level === 0) showNextStep(); }, 900);
+}
 
 loadLevel(0);
 </script>
