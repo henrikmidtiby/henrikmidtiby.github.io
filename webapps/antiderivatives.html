@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rule Shooter — antiderivative trainer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161a; --panel:#1c1f26; --panel2:#22262f; --border:#333947;
+    --ink:#e8e6df; --muted:#9aa0ad;
+    --amber:#f5b83d; --green:#5fd68a; --red:#ef6a5a; --blue:#6db3f2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Chakra Petch",sans-serif; min-height:100vh; display:flex; flex-direction:column}
+  header{display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    padding:12px 20px; border-bottom:1px solid var(--border)}
+  header h1{font-size:19px; margin:0; letter-spacing:.04em}
+  header h1 em{color:var(--amber); font-style:normal}
+  header a{color:var(--muted); font-size:13px; text-decoration:none; border:1px solid var(--border);
+    border-radius:3px; padding:4px 9px}
+  header a:hover{color:var(--ink)}
+  .levels{display:flex; gap:6px; flex-wrap:wrap}
+  .lvlbtn{background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+    font:inherit; font-size:13px; padding:5px 11px; cursor:pointer; border-radius:3px}
+  .lvlbtn:hover{color:var(--ink)}
+  .lvlbtn.active{border-color:var(--amber); color:var(--amber)}
+  .lvlbtn.done{color:var(--green); border-color:#2c5a3d}
+  .hud{margin-left:auto; display:flex; gap:18px; font-size:14px}
+  .hud b{color:var(--amber); font-variant-numeric:tabular-nums}
+  main{flex:1; display:flex; flex-direction:column; padding:14px 20px 8px; gap:12px; width:100%}
+  .cols{display:grid; grid-template-columns:1fr minmax(260px, 380px); gap:14px; align-items:start; flex:1}
+  .gamecol{display:flex; flex-direction:column; gap:12px; min-width:0}
+  .objective{color:var(--muted); font-size:14px; min-height:18px}
+  .objective b{color:var(--ink)}
+  #stage{background:var(--panel); border:1px solid var(--border); border-radius:6px;
+    padding:44px 24px; text-align:center; overflow-x:auto; position:relative}
+  #stage.shake{animation:shake .35s}
+  @keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+  #expr{font-size:1.5em; line-height:2.4}
+  #expr .pending{cursor:crosshair; border-radius:4px; padding:2px 3px;
+    border-bottom:2px dashed var(--amber)}
+  #expr .pending:hover{background:#3a3320}
+  #expr .pending.sel{background:var(--amber); color:#14161a !important}
+  #expr .pending.sel .katex *{color:#14161a !important}
+  #expr .clickable{cursor:grab; border-radius:4px; padding:1px 2px}
+  #expr .clickable:hover{background:#243043; outline:1px solid var(--blue)}
+  #expr .picked{background:var(--blue); color:#14161a !important}
+  #expr .clickable.used{opacity:.45; pointer-events:none}
+  @keyframes pop{from{opacity:.2; transform:scale(.96)}to{opacity:1; transform:scale(1)}}
+  #expr.pop{animation:pop .22s}
+  .targets{color:var(--muted); font-size:13px; text-align:center}
+  .targets b{color:var(--amber)}
+  #tray{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; padding:6px 0}
+  .card{background:var(--panel2); border:1px solid var(--border); border-radius:5px;
+    padding:9px 12px; cursor:pointer; position:relative; text-align:left; font:inherit; color:var(--ink)}
+  .card:hover{border-color:var(--amber)}
+  .card.armed{border-color:var(--blue); box-shadow:0 0 6px #24405e}
+  .card .name{font-size:12px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase}
+  .card .key{position:absolute; top:7px; right:9px; font-size:11px; color:var(--muted);
+    border:1px solid var(--border); border-radius:3px; padding:0 5px}
+  .card .formula{margin-top:5px; font-size:.95em; overflow:hidden}
+  /* rewrite machine */
+  #machine{border:1px solid var(--blue); border-radius:6px; background:var(--panel);
+    padding:12px 16px; display:none}
+  #machine.show{display:block}
+  #machine .mlabel{font-size:11px; letter-spacing:.08em; color:var(--blue)}
+  #machine .mrow{display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; align-items:stretch}
+  .slot{flex:1; min-width:240px; border:2px dashed var(--border); border-radius:6px;
+    padding:8px 12px; cursor:pointer; min-height:64px}
+  .slot.filled{border-style:solid; border-color:var(--blue); cursor:pointer}
+  .slot .slabel{font-size:11px; color:var(--muted); margin-bottom:4px}
+  .slot .sval{font-size:1.05em; min-height:1.6em}
+  .slot .shint{color:#4a5160; font-style:italic}
+  #machine .mactions{margin-top:12px; display:flex; gap:10px; align-items:center}
+  #machine button{font:inherit; font-size:14px; border:0; border-radius:4px;
+    padding:9px 22px; cursor:pointer; font-weight:600}
+  #applyBtn{background:var(--blue); color:#14161a}
+  #applyBtn:disabled{opacity:.35; cursor:default}
+  #cancelBtn{background:none; border:1px solid var(--border) !important; color:var(--muted)}
+  #toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--panel2); border:1px solid var(--border); border-radius:5px;
+    padding:10px 18px; font-size:14px; opacity:0; pointer-events:none;
+    transition:opacity .18s; max-width:90vw; z-index:70}
+  #toast.bad{border-color:var(--red); color:var(--red)}
+  #toast.good{border-color:var(--green); color:var(--green)}
+  #toast.show{opacity:1}
+  /* solution path */
+  #pathWrap{border:1px solid var(--border); border-radius:6px; background:var(--panel);
+    padding:10px 12px; display:flex; flex-direction:column; gap:8px;
+    position:sticky; top:12px; max-height:calc(100vh - 90px); overflow:hidden}
+  #pathWrap .plabel{font-size:11px; letter-spacing:.08em; color:var(--muted); flex:none}
+  #path{display:flex; flex-direction:column; gap:10px; overflow-y:auto;
+    padding:4px 4px 8px; scrollbar-width:thin}
+  #path .step{display:flex; align-items:center; gap:8px; min-width:0}
+  #path .step .smath{font-size:.88em; min-width:0; overflow-x:auto; scrollbar-width:none}
+  #path .step .sname{font-size:10px; color:var(--muted); flex:none; width:86px;
+    text-align:right; white-space:normal}
+  #path .step:last-child .smath .katex{outline:1px solid var(--amber); border-radius:4px;
+    padding:3px 5px; display:inline-block}
+  #path .step.clickable{cursor:pointer}
+  #path .step.clickable:hover .sname{color:var(--amber)}
+  /* overlays */
+  .overlay{position:fixed; inset:0; background:rgba(10,11,14,.82); display:none;
+    align-items:center; justify-content:center; z-index:60}
+  .overlay.show{display:flex}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:34px 44px; text-align:center; max-width:560px}
+  .panel h2{margin:0 0 6px; font-size:24px}
+  .panel .final{margin:18px 0; font-size:1.25em}
+  .panel .stats{color:var(--muted); font-size:14px; margin-bottom:20px}
+  .panel button{font:inherit; font-size:15px; background:var(--amber); color:#14161a; border:0;
+    padding:10px 26px; border-radius:4px; cursor:pointer; font-weight:600; margin:4px}
+  .panel button.ghost{background:none; border:1px solid var(--border); color:var(--muted)}
+  .winmark{color:var(--green)}
+  .review-sheet{text-align:left; margin:18px 0 14px; font-size:1.05em;
+    max-height:62vh; overflow-y:auto; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); padding:14px 18px}
+  .review-line{display:flex; align-items:baseline; gap:14px; padding:7px 0;
+    border-bottom:1px dashed #262a33}
+  .review-line:last-child{border-bottom:0}
+  .review-line .rl-math{flex:1; min-width:0; overflow-x:auto; scrollbar-width:none}
+  .review-line .rl-sign{color:var(--muted); flex:none; width:18px; text-align:center}
+  .review-line .rl-note{flex:none; width:190px; font-size:12px; color:var(--muted); text-align:left}
+  .review-line .rl-detail{flex:none; width:260px; font-size:12px; color:var(--blue); text-align:left}
+  .review-line.start .rl-note{color:var(--ink)}
+  .review-line.final .rl-note{color:var(--green)}
+  .review-hint{font-size:11px; color:var(--muted); margin-bottom:14px}
+
+  footer{border-top:1px solid var(--border); color:var(--muted); font-size:12px;
+    text-align:center; padding:10px 16px 14px}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--ink)}
+  @media (prefers-reduced-motion: reduce){
+    #stage.shake,#expr.pop{animation:none !important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>RULE <em>SHOOTER</em> · ∫</h1>
+  <a href="derivative.html">← derivative mode</a>
+  <nav class="levels" id="levels"></nav>
+  <div class="hud">
+    <span>SCORE <b id="score">0</b></span>
+    <span>COMBO <b id="combo">×1</b></span>
+    <span>MISSES <b id="misses">0</b></span>
+  </div>
+</header>
+
+<main>
+  <div class="objective" id="objective"></div>
+  <div class="cols">
+    <div class="gamecol">
+      <div id="stage"><div id="expr"></div></div>
+      <div class="targets" id="targets"></div>
+      <div id="tray"></div>
+      <div id="machine">
+        <div class="mlabel">REWRITE MACHINE</div>
+        <div id="machineName" style="font-weight:600; margin-top:4px"></div>
+        <div class="mrow" id="slotRow"></div>
+        <div class="mactions">
+          <button id="applyBtn" disabled>Apply rewrite</button>
+          <button id="cancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="pathWrap"><span class="plabel">SOLUTION PATH</span><div id="path"></div></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<div class="overlay" id="doneOverlay">
+  <div class="panel">
+    <h2 class="winmark" id="doneTitle">Level cleared</h2>
+    <div class="final" id="doneExpr"></div>
+    <div class="stats" id="doneStats"></div>
+    <button id="reviewBtn" class="ghost">Walk through the solution</button>
+    <button id="nextBtn">Next level →</button>
+    <button class="ghost" id="replayBtn">Replay level</button>
+  </div>
+</div>
+
+<div class="overlay" id="reviewOverlay">
+  <div class="panel" style="max-width:1200px; width:92vw">
+    <h2 id="reviewTitle">Solution walkthrough</h2>
+    <div class="review-sheet" id="reviewSheet"></div>
+    <div class="review-hint">Equal signs aligned; the rule for each line is on the right.</div>
+    <button id="rvClose" class="ghost">Close walkthrough</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= expression tree ================= */
+// num{v}  var{name}  add/sub/mul/div{a,b}  pow{base,exp}  fn{name,arg}  int{a,vx}
+let nidCounter = 1;
+function assignNids(n){
+  if (!n || typeof n !== 'object') return;
+  if (!n._nid) n._nid = nidCounter++;
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) assignNids(n[k]);
+}
+const N = v => ({t:'num', v});
+const V = (name='x') => ({t:'var', name});
+const F = (name, arg) => ({t:'fn', name, arg});
+const I = (a, vx='x') => ({t:'int', a, vx});
+
+/* random helpers for task variation */
+const rnd = arr => arr[Math.floor(Math.random()*arr.length)];
+const rndInt = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+
+/* ================= differentiation (for verification) ================= */
+function diff(n){
+  switch(n.t){
+    case 'num': return N(0);
+    case 'var': return N(1);
+    case 'neg': return {t:'neg', a:diff(n.a)};
+    case 'add': return {t:'add', a:diff(n.a), b:diff(n.b)};
+    case 'sub': return {t:'sub', a:diff(n.a), b:diff(n.b)};
+    case 'mul': return {t:'add', a:{t:'mul', a:diff(n.a), b:n.b}, b:{t:'mul', a:n.a, b:diff(n.b)}};
+    case 'div': return {t:'div',
+      a:{t:'sub', a:{t:'mul', a:diff(n.a), b:n.b}, b:{t:'mul', a:n.a, b:diff(n.b)}},
+      b:{t:'pow', base:n.b, exp:N(2)}};
+    case 'pow': { // d(u^c) = c·u^(c-1)·u'
+      const c = n.exp;
+      const newExp = c.t==='num' && c.v===1 ? N(0) : (c.t==='num' ? N(c.v-1) : {t:'sub', a:c, b:N(1)});
+      return {t:'mul', a:{t:'mul', a:c, b:{t:'pow', base:n.base, exp:newExp}}, b:diff(n.base)};
+    }
+    case 'fn': {
+      const u = n.arg, du = diff(u);
+      if (n.name==='sin') return {t:'mul', a:F('cos',u), b:du};
+      if (n.name==='cos') return {t:'mul', a:{t:'neg', a:{t:'mul', a:N(-1), b:F('sin',u)}}, b:du};
+      if (n.name==='exp') return {t:'mul', a:F('exp',u), b:du};
+      if (n.name==='ln')  return {t:'div', a:du, b:u};
+    }
+  }
+}
+
+/* ================= simplification ================= */
+function simp(node){
+  if (!node || typeof node !== 'object') return node;
+  for (let i=0; i<8; i++){
+    const r = simpOnce(node);
+    if (r === node) break;
+    node = r;
+  }
+  return node;
+}
+function isPowOfVar(n){ return (n.t==='var' && n.name!=='C') || (n.t==='pow' && n.base.t==='var' && n.exp.t==='num'); }
+function powExp(n){ return n.t==='var' ? N(1) : n.exp; }
+function simpOnce(n){
+  switch(n.t){
+    case 'add': case 'sub': case 'mul': case 'div': {
+      const a = simpOnce(n.a), b = simpOnce(n.b);
+      if (n.t==='add' || n.t==='sub'){
+        if (b.t==='num' && b.v===0) return a;
+        if (n.t==='add' && a.t==='num' && a.v===0) return b;
+        if (a.t==='num' && b.t==='num') return N(a.v + (n.t==='add' ? b.v : -b.v));
+        if (b.t==='neg') return simpOnce({t: n.t==='add' ? 'sub' : 'add', a, b: b.a});
+      }
+      if (n.t==='mul'){
+        if (a.t==='num' && b.t==='num') return N(a.v*b.v);
+        if (a.t==='num' && a.v===0) return N(0);
+        if (b.t==='num' && b.v===0) return N(0);
+        if (a.t==='num' && a.v===1) return b;
+        if (b.t==='num' && b.v===1) return a;
+        if (a.t==='num' && a.v===-1) return simpOnce({t:'neg', a:b});
+        if (b.t==='num' && b.v===-1) return simpOnce({t:'neg', a});
+        if (a.t==='num' && b.t==='mul' && b.a.t==='num') return simpOnce({t:'mul', a:N(a.v*b.a.v), b:b.b});
+        if (a.t==='num' && b.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a, b:b.a}});
+        if (isPowOfVar(a) && isPowOfVar(b)) return simpOnce({t:'pow', base:V(), exp:{t:'add', a:powExp(a), b:powExp(b)}});
+        if (isPowOfVar(a) && b.t==='mul' && isPowOfVar(b.a)) return simpOnce({t:'mul', a:{t:'pow', base:V(), exp:{t:'add', a:powExp(a), b:powExp(b.a)}}, b:b.b});
+        if (isPowOfVar(a) && b.t==='mul' && b.a.t==='num' && isPowOfVar(b.b)) return simpOnce({t:'mul', a:b.a, b:{t:'pow', base:V(), exp:{t:'add', a:powExp(a), b:powExp(b.b)}}});
+        if (isPowOfVar(b) && a.t==='mul' && isPowOfVar(a.b)) return simpOnce({t:'mul', a:a.a, b:{t:'pow', base:V(), exp:{t:'add', a:powExp(a.b), b:powExp(b)}}});
+        if (a.t==='mul' && a.a.t==='num' && isPowOfVar(a.b) && isPowOfVar(b)) return simpOnce({t:'mul', a:a.a, b:{t:'pow', base:V(), exp:{t:'add', a:powExp(a.b), b:powExp(b)}}});
+        if (a.t==='mul' && isPowOfVar(a.a) && a.b.t==='num' && isPowOfVar(b)) return simpOnce({t:'mul', a:a.b, b:{t:'pow', base:V(), exp:{t:'add', a:powExp(a.a), b:powExp(b)}}});
+        if (a.t==='mul' && a.a.t==='num' && b.t==='num') return simpOnce({t:'mul', a:N(a.a.v*b.v), b:a.b});
+        if (a.t==='mul' && a.b.t==='num' && b.t==='num') return simpOnce({t:'mul', a:N(a.b.v*b.v), b:a.a});
+        if (a.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a:a.a, b}});
+        if (b.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a, b:b.a}});
+        // fraction arithmetic: pull divisors out of products
+        if (b.t==='div') return simpOnce({t:'div', a:{t:'mul', a, b:b.a}, b:b.b});
+        if (a.t==='div') return simpOnce({t:'div', a:{t:'mul', a:a.a, b}, b:a.b});
+      }
+      if (n.t==='div' && a.t==='num' && b.t==='num' && b.v!==0 && a.v % b.v === 0) return N(a.v/b.v);
+      if (n.t==='div' && b.t==='num' && b.v===1) return a;   // A/1 → A
+      if (n.t==='div'){
+        // (c·A)/c'  →  (c/c')·A  when divisible
+        if (a.t==='mul' && a.a.t==='num' && b.t==='num' && b.v!==0 && a.a.v % b.v === 0)
+          return simpOnce({t:'mul', a:N(a.a.v/b.v), b:a.b});
+        // (A·c)/c'  →  (c/c')·A  when divisible
+        if (a.t==='mul' && a.b.t==='num' && b.t==='num' && b.v!==0 && a.b.v % b.v === 0)
+          return simpOnce({t:'mul', a:N(a.b.v/b.v), b:a.a});
+        // (A/B)/C  →  A/(B·C)
+        if (a.t==='div') return simpOnce({t:'div', a:a.a, b:{t:'mul', a:a.b, b}});
+        // x^m / x  →  x^(m-1)
+        if (isPowOfVar(a) && b.t==='var') return simpOnce({t:'pow', base:V(), exp:{t:'sub', a:powExp(a), b:N(1)}});
+        // x^m / (c·x)  →  x^(m-1) / c
+        if (isPowOfVar(a) && b.t==='mul' && b.a.t==='num' && b.b.t==='var')
+          return simpOnce({t:'div', a:{t:'pow', base:V(), exp:{t:'sub', a:powExp(a), b:N(1)}}, b:b.a});
+      }
+      return {t:n.t, a, b};
+    }
+    case 'pow': {
+      const base = simpOnce(n.base), exp = simpOnce(n.exp);
+      if (base.t==='var' && exp.t==='num' && exp.v===1) return V();
+      if (exp.t==='num' && exp.v===0 && (base.t==='var'||base.t==='num')) return N(1);
+      return {t:'pow', base, exp};
+    }
+    case 'neg': {
+      const a = simpOnce(n.a);
+      if (a.t==='num') return N(-a.v);
+      if (a.t==='neg') return a.a;             // −(−f) → f
+      return {t:'neg', a};
+    }
+    case 'fn': return F(n.name, simpOnce(n.arg));
+    case 'int': return I(simpOnce(n.a), n.vx);
+    default: return n;
+  }
+}
+
+/* ================= LaTeX ================= */
+const FN_TEX = {sin:'\\sin ', cos:'\\cos ', exp:'exp', ln:'\\ln '};
+function latex(node, opts){
+  opts = opts || {};
+  // mode 'aim': only ∫ nodes are clickable. mode 'pick': everything is clickable.
+  const mode = opts.mode || null;
+  const clickable = (mode==='aim' && node.t==='int') || (mode==='pick' && node.t!=='int');
+  const wrap = (s, node) => clickable && node._nid
+    ? `\\htmlData{nid=${node._nid}}{\\htmlClass{clickable}{${s}}}` : s;
+  const prec = {add:40, sub:40, mul:50, div:60, neg:60, pow:90, fn:95, num:100, var:100, int:30};
+  const p = prec[node.t] || 100;
+  const child = (c, min) => {
+    const cp = prec[c.t] || 100;
+    const s = latex(c, opts);
+    return cp < min ? `\\left(${s}\\right)` : s;
+  };
+  switch(node.t){
+    case 'num': return node.v < 0 ? `(${node.v})` : String(node.v);
+    case 'var': return node.name==='C' ? 'C' : wrap(node.name, node);
+    case 'add': return wrap(child(node.a,41) + ' + ' + child(node.b,41), node);
+    case 'sub': return wrap(child(node.a,41) + ' - ' + child(node.b,41), node);
+    case 'mul': return wrap(child(node.a,51) + ' \\cdot ' + child(node.b,51), node);
+    case 'div': return wrap(`\\frac{${latex(node.a,opts)}}{${latex(node.b,opts)}}`, node);
+    case 'neg': return wrap('-' + child(node.a,61), node);
+    case 'pow': {
+      const bs = latex(node.base, opts);
+      const b = (prec[node.base.t] < 90) ? `\\left(${bs}\\right)` : bs;
+      const es = latex(node.exp, opts);
+      const e = (prec[node.exp.t] < 100) ? `\\left(${es}\\right)` : es;
+      return wrap(`${b}^{${e}}`, node);
+    }
+    case 'fn': {
+      const f = FN_TEX[node.name];
+      const s = node.name==='exp' ? `\\mathrm{e}^{${latex(node.arg,opts)}}` : `${f}\\left(${latex(node.arg,opts)}\\right)`;
+      return wrap(s, node);
+    }
+    case 'int':
+      return wrap(`\\int\\left(${latex(node.a,opts)}\\right)\\,d${node.vx}`, node);
+  }
+}
+
+/* ================= game state ================= */
+let tree = null, level = 0, aimNid = null, score = 0, combo = 1, misses = 0;
+let history = [];
+let machine = null;   // {ruleId, slots:[{label, val:null}]}
+let cleared = new Set();
+let substStack = [];   // [{u: expr in x, uprime: expr in x}] — substitutions in application order
+const $ = id => document.getElementById(id);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function katexRender(el, tex, opts){
+  katex.render(tex, el, Object.assign({trust:true, strict:false, throwOnError:false}, opts||{}));
+}
+function nodeByNid(n, nid){
+  if (!n || typeof n !== 'object') return null;
+  if (n._nid === nid) return n;
+  for (const k of ['a','b','arg','base','exp']){
+    if (n[k]){ const r = nodeByNid(n[k], nid); if (r) return r; }
+  }
+  return null;
+}
+function countInt(n){
+  if (!n || typeof n !== 'object') return 0;
+  let c = n.t==='int' ? 1 : 0;
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) c += countInt(n[k]);
+  return c;
+}
+function collectInts(n, acc=[]){
+  if (!n || typeof n !== 'object') return acc;
+  if (n.t==='int') acc.push(n);
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) collectInts(n[k], acc);
+  return acc;
+}
+function replaceNodeByNid(n, nid, repl){
+  if (!n || typeof n !== 'object') return n;
+  if (n._nid === nid) return repl;
+  const out = {t:n.t};
+  for (const k of Object.keys(n)){
+    if (k==='_nid'){ out._nid = n._nid; continue; }
+    out[k] = (['a','b','arg','base','exp'].includes(k) && n[k])
+      ? replaceNodeByNid(n[k], nid, repl) : n[k];
+  }
+  return out;
+}
+
+function render(){
+  assignNids(tree);
+  katexRender($('expr'), latex(tree, {mode: machine ? 'pick' : 'aim'}));
+  const ints = countInt(tree);
+  let msg = '';
+  if (ints === 0) msg = 'No integrals left — the antiderivative is complete (the +C is already included).';
+  else msg = `Integrals remaining: <b>${ints}</b> — click one to aim, then fire a rule (keys 1–5).`;
+  $('targets').innerHTML = msg;
+  renderPath();
+}
+
+function renderPath(){
+  const path = $('path');
+  path.innerHTML = '';
+  history.forEach((h, i) => {
+    const s = document.createElement('div');
+    const isCurrent = i === history.length - 1;
+    s.className = 'step' + (isCurrent ? '' : ' clickable');
+    const lbl = document.createElement('div');
+    lbl.className = 'sname';
+    lbl.textContent = h.ruleName ? '⟵ ' + h.ruleName : 'start';
+    s.appendChild(lbl);
+    const el = document.createElement('span');
+    el.className = 'smath';
+    katexRender(el, h.tex);
+    s.appendChild(el);
+    if (!isCurrent){
+      s.title = 'Click to go back to this step';
+      s.addEventListener('click', ()=> restoreStep(i));
+    }
+    path.appendChild(s);
+  });
+  path.scrollTop = path.scrollHeight;
+}
+function restoreStep(i){
+  if (i < 0 || i >= history.length - 1) return;
+  tree = JSON.parse(JSON.stringify(history[i].tree));
+  history = history.slice(0, i + 1);
+  while (substStack.length > history[i].stackDepth) substStack.pop();
+  machine = null; aimNid = null; combo = 1;
+  updateMachineUI();
+  render(); hud();
+  toast('Rewound to step ' + (i + 1) + '.', '');
+}
+
+function toast(msg, cls){
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (cls||'');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> el.className = '', 2600);
+}
+function hud(){
+  $('score').textContent = score;
+  $('combo').textContent = '×' + combo;
+  $('misses').textContent = misses;
+}
+function missFeedback(msg){
+  misses++; combo = 1;
+  $('stage').classList.remove('shake'); void $('stage').offsetWidth;
+  $('stage').classList.add('shake');
+  hud();
+  toast(msg, 'bad');
+}
+
+/* aiming an integral */
+$('expr').addEventListener('click', ev => {
+  const t = ev.target.closest('[data-nid]');
+  if (!t) return;
+  const nid = parseInt(t.dataset.nid, 10);
+  const node = nodeByNid(tree, nid);
+  if (!node) return;
+  if (machine){
+    // fill next empty slot
+    const empty = machine.slots.find(s => s.val === null);
+    if (empty){
+      empty.val = JSON.parse(JSON.stringify(node));
+      delete empty.val._nid;
+      updateMachineUI();
+      return;
+    }
+    return;
+  }
+  if (node.t === 'int'){
+    aimNid = nid;
+    render();
+  }
+});
+
+/* ================= rules ================= */
+const RULES = [
+  {id:'sum', name:'Sum rule', key:'1',
+   tex:'\\textstyle\\int(u\\pm v)\\,dx=\\int u\\,dx\\pm\\int v\\,dx',
+   needsSlots:false},
+  {id:'constmult', name:'Constant multiple', key:'2',
+   tex:'\\textstyle\\int c\\,u\\,dx=c\\int u\\,dx',
+   needsSlots:false},
+  {id:'basic', name:'Basic antiderivative', key:'3',
+   tex:"x^n\\to\\tfrac{x^{n+1}}{n+1},\\; e^x,\\; \\sin,\\; \\cos,\\; \\tfrac1x",
+   needsSlots:false},
+  {id:'subst', name:'Substitution', key:'4',
+   tex:'\\textstyle\\int u\'\\cdot f(u)\\,dx = F(u):\\ \\text{pick } u \\text{ and } u\'',
+   needsSlots:true,
+   slotLabels:['u =', "u′ (the du/dx factor) ="]},
+  {id:'partial', name:'Partial integration', key:'5',
+   tex:"\\textstyle\\int u\\,dv = uv-\\int v\\,du:\\ \\text{pick } u \\text{ and } dv",
+   needsSlots:true,
+   slotLabels:['u (differentiate this) =', 'dv (antidifferentiate this) =']},
+  {id:'revsubst', name:'Reverse substitution', key:'6',
+   tex:'\\textstyle\\int f(u)\\,du=\\int f(g(x))\\,g\'(x)\\,dx:\\ \\text{undo the last substitution}',
+   needsSlots:false},
+];
+
+function aimedInt(){
+  if (aimNid === null) return null;
+  const n = nodeByNid(tree, aimNid);
+  return (n && n.t==='int') ? n : null;
+}
+
+function fire(rule){
+  if (rule.needsSlots){
+    if (!aimedInt()){ toast('Aim first: click one of the ∫ terms.', 'bad'); return; }
+    machine = {ruleId: rule.id, slots: rule.slotLabels.map(l => ({label: l, val: null}))};
+    render();          // re-render so picking mode is active
+    updateMachineUI();
+    return;
+  }
+  const ai = aimedInt();
+  if (!ai){ toast('Aim first: click one of the ∫ terms.', 'bad'); return; }
+  if (rule.id === 'sum'){
+    const f = ai.a;
+    if (f.t !== 'add' && f.t !== 'sub'){ missFeedback('No effect — the integrand is not a sum/difference. Fire the sum rule on ∫ terms containing + or −.'); return; }
+    const repl = {t:f.t, a: I(f.a, ai.vx), b: I(f.b, ai.vx)};
+    tree = replaceNodeByNid(tree, ai._nid, repl);
+    hitScore(ai, rule);
+    return;
+  }
+  if (rule.id === 'constmult'){
+    const f = ai.a;
+    // c·u form
+    if (f.t==='mul' && (f.a.t==='num' || f.b.t==='num')){
+      const c = f.a.t==='num' ? f.a : f.b;
+      const u = f.a.t==='num' ? f.b : f.a;
+      const repl = {t:'mul', a:c, b: I(u, ai.vx)};
+      tree = replaceNodeByNid(tree, ai._nid, repl);
+      hitScore(ai, rule);
+      return;
+    }
+    // A/c form → (1/c)·∫A
+    if (f.t==='div' && f.b.t==='num'){
+      const repl = {t:'mul',
+        a:{t:'div', a:N(1), b:f.b},
+        b: I(f.a, ai.vx)};
+      tree = replaceNodeByNid(tree, ai._nid, repl);
+      hitScore(ai, rule);
+      return;
+    }
+    // c/x form → c·∫1/x
+    if (f.t==='div' && f.a.t==='num' && f.b.t==='var' && f.b.name===ai.vx){
+      const repl = {t:'mul', a:f.a, b: I({t:'div', a:N(1), b:f.b}, ai.vx)};
+      tree = replaceNodeByNid(tree, ai._nid, repl);
+      hitScore(ai, rule);
+      return;
+    }
+    // −f form → −∫f
+    if (f.t==='neg'){
+      const repl = {t:'neg', a: I(f.a, ai.vx)};
+      tree = replaceNodeByNid(tree, ai._nid, repl);
+      hitScore(ai, rule);
+      return;
+    }
+    missFeedback('No effect — no constant factor in this integrand.'); return;
+  }
+  if (rule.id === 'basic'){
+    const f = ai.a;
+    if (!isBasicIntegrand(f, ai.vx)){
+      if (hasConstantFactor(f)){
+        missFeedback('Not a basic antiderivative yet — pull the constant factor out with the constant multiple rule first.');
+      } else {
+        missFeedback('No effect — not a basic antiderivative. Try substitution or partial integration. ' + basicHint(f));
+      }
+      return;
+    }
+    const ad = antidiff(f, ai.vx);
+    if (!ad){ missFeedback('No effect — not a basic antiderivative. Try substitution or partial integration. ' + basicHint(f)); return; }
+    tree = replaceNodeByNid(tree, ai._nid, {t:'add', a:ad, b:V('C')});   // + the integration constant
+    hitScore(ai, rule);
+    return;
+  }
+  if (rule.id === 'revsubst'){
+    if (ai.vx !== 'u'){
+      missFeedback('Reverse substitution only applies to integrals in u — fire it on an integral produced by a substitution.'); return;
+    }
+    if (!substStack.length){
+      missFeedback('No earlier substitution to reverse in this level.'); return;
+    }
+    const {u, uprime} = substStack[substStack.length - 1];
+    const work = replaceSubtree(JSON.parse(JSON.stringify(ai.a)), {t:'var', name:'u'}, u);
+    const repl = I(simp({t:'mul', a:work, b:JSON.parse(JSON.stringify(uprime))}), 'x');
+    tree = replaceNodeByNid(tree, ai._nid, repl);
+    substStack.pop();
+    hitScore(ai, rule, 'reverse of  u = ' + latex(u, null) + ',  u\' = ' + latex(uprime, null));
+    return;
+  }
+}
+
+function hitScore(ai, rule, detail){
+  machine = null;
+  updateMachineUI();
+  tree = simp(JSON.parse(JSON.stringify(tree)));   // arithmetic tidy of the rewritten expression
+  tree = mergeC(tree);                             // collect all +C into one trailing +C
+  history.push({tex: latex(tree, null), ruleName: rule.name, detail: detail || null,
+                tree: JSON.parse(JSON.stringify(tree)), stackDepth: substStack.length});
+  score += 100 + 25*(combo-1);
+  combo++;
+  aimNid = null;
+  $('stage').classList.remove('pop'); void $('stage').offsetWidth;
+  $('stage').classList.add('pop');
+  render(); hud();
+  if (countInt(tree) === 0) levelCleared();
+  else toast('Hit! ' + rule.name + ' applied.', 'good');
+}
+
+function basicHint(f){
+  if (f.t==='div' && f.b.t==='var') return '(for 1/x use ln|x|)';
+  if (f.t==='pow' && f.base.t==='var' && f.exp.t==='num' && f.exp.v===-1) return '(x⁻¹ is 1/x — its antiderivative is ln|x|)';
+  return '';
+}
+
+/* basic integrand = exactly one of the basic forms, NO constant factor:
+   x^n, e^vx, sin(vx), cos(vx), 1/vx, plain constant */
+function isBasicIntegrand(f, vx){
+  vx = vx || 'x';
+  if (f.t==='num') return true;
+  if (isPowOfVar(f)) return true;
+  if (f.t==='fn' && f.name==='exp' && f.arg.t==='var' && f.arg.name===vx) return true;
+  if (f.t==='fn' && (f.name==='sin'||f.name==='cos') && f.arg.t==='var' && f.arg.name===vx) return true;
+  if (f.t==='div' && f.a.t==='num' && f.a.v===1 && f.b.t==='var' && f.b.name===vx) return true;
+  return false;
+}
+/* does the integrand carry a constant factor / constant denominator / leading minus? */
+function hasConstantFactor(f){
+  if (f.t==='neg') return true;
+  if (f.t==='mul' && (f.a.t==='num' || f.b.t==='num')) return true;
+  if (f.t==='div' && f.b.t==='num') return true;
+  if (f.t==='div' && f.a.t==='num' && f.a.v!==1) return true;   // c/x with c≠1
+  return false;
+}
+
+/* basic antiderivative of a node, or null — vx names the integration variable */
+function antidiff(f, vx){
+  vx = vx || 'x';
+  // −f  →  −(antiderivative of f)
+  if (f.t==='neg'){
+    const inner = antidiff(f.a, vx);
+    return inner ? {t:'neg', a:inner} : null;
+  }
+  // c (constant)
+  if (f.t==='num') return {t:'mul', a:f, b:V(vx)};
+  // x^n
+  if (isPowOfVar(f)){
+    return powAntidiff(1, f, vx);
+  }
+  // c * x^n
+  if (f.t==='mul' && f.a.t==='num' && isPowOfVar(f.b)){
+    return powAntidiff(f.a.v, f.b, vx);
+  }
+  // e^vx
+  if (f.t==='fn' && f.name==='exp' && f.arg.t==='var' && f.arg.name===vx) return F('exp', V(vx));
+  // c * e^vx
+  if (f.t==='mul' && f.a.t==='num' && f.b.t==='fn' && f.b.name==='exp' && f.b.arg.t==='var' && f.b.arg.name===vx)
+    return {t:'mul', a:f.a, b:F('exp', V(vx))};
+  // sin(vx), cos(vx)
+  if (f.t==='fn' && f.name==='sin' && f.arg.t==='var' && f.arg.name===vx)
+    return {t:'neg', a:F('cos', V(vx))};
+  if (f.t==='fn' && f.name==='cos' && f.arg.t==='var' && f.arg.name===vx)
+    return F('sin', V(vx));
+  // c*sin(vx), c*cos(vx)
+  if (f.t==='mul' && f.a.t==='num' && f.b.t==='fn' && f.b.arg.t==='var' && f.b.arg.name===vx){
+    if (f.b.name==='sin') return {t:'neg', a:{t:'mul', a:f.a, b:F('cos', V(vx))}};
+    if (f.b.name==='cos') return {t:'mul', a:f.a, b:F('sin', V(vx))};
+  }
+  // 1/vx
+  if (f.t==='div' && f.a.t==='num' && f.b.t==='var' && f.b.name===vx)
+    return {t:'mul', a:f.a, b:F('ln', V(vx))};
+  return null;
+}
+function powAntidiff(c, pw, vx){
+  // antiderivative of c * vx^n (n ≠ -1) -> (c/(n+1)) vx^(n+1)
+  const n = powExp(powBaseNorm(c, pw));
+  if (n.t!=='num') return null;
+  if (n.v === -1) return {t:'mul', a:N(c), b:F('ln', V(vx))};
+  const k = n.v + 1;
+  return {t:'div', a:{t:'mul', a:N(c), b:{t:'pow', base:V(vx), exp:N(k)}}, b:N(k)};
+}
+function powBaseNorm(c, pw){ return {t:'pow', base:pw.base||pw.base, exp: pw.t==='var'? N(1): pw.exp}; }
+
+/* ---- collecting the integration constant ---- */
+function hasC(n){
+  if (!n || typeof n !== 'object') return false;
+  if (n.t==='var' && n.name==='C') return true;
+  for (const k of ['a','b','arg','base','exp']) if (n[k] && hasC(n[k])) return true;
+  return false;
+}
+/* Remove every integration constant outside pending ∫-nodes (valid since each
+   C is arbitrary: c·(f+C)=c·f+C, (f+C)/c=f/c+C, (f+C)+(g+C)=f+g+C).
+   Returns null when no C was present, else the C-free tree (with N(0) placeholders). */
+function stripC(n){
+  if (!n || typeof n !== 'object') return null;
+  if (n.t==='int') return null;              // a C belongs to the integral it was born in
+  if (n.t==='var') return n.name==='C' ? N(0) : null;
+  let changed = false;
+  const out = {t:n.t};
+  for (const k of Object.keys(n)){
+    if (['a','b','arg','base','exp'].includes(k) && n[k]){
+      const r = stripC(n[k]);
+      if (r){ out[k] = r; changed = true; } else out[k] = n[k];
+    } else out[k] = n[k];
+  }
+  return changed ? out : null;
+}
+/* collect: strip all Cs, then append ONE trailing +C (simp folds the +0 placeholders) */
+function mergeC(n){
+  const cFree = stripC(n);
+  return cFree ? simp({t:'add', a:cFree, b:V('C')}) : n;
+}
+
+/* ================= rewrite machine ================= */
+function updateMachineUI(){
+  const m = $('machine');
+  if (!machine){ m.classList.remove('show'); return; }
+  m.classList.add('show');
+  const rule = RULES.find(r => r.id === machine.ruleId);
+  $('machineName').textContent = rule.name;
+  const row = $('slotRow');
+  row.innerHTML = '';
+  machine.slots.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'slot' + (s.val ? ' filled' : '');
+    const l = document.createElement('div');
+    l.className = 'slabel'; l.textContent = s.label;
+    d.appendChild(l);
+    const v = document.createElement('div');
+    v.className = 'sval';
+    if (s.val) katexRender(v, latex(s.val, null));
+    else v.innerHTML = '<span class="shint">click a part of the integral…</span>';
+    d.appendChild(v);
+    d.addEventListener('click', ()=>{
+      if (s.val){ s.val = null; updateMachineUI(); }   // click filled slot to clear
+    });
+    row.appendChild(d);
+  });
+  $('applyBtn').disabled = machine.slots.some(s => s.val === null);
+}
+$('cancelBtn').addEventListener('click', ()=>{ machine = null; updateMachineUI(); });
+$('applyBtn').addEventListener('click', applyMachine);
+
+function applyMachine(){
+  const ai = aimedInt();
+  if (!ai || !machine) return;
+  const [s1, s2] = machine.slots;
+  if (s1.val === null || s2.val === null) return;
+  if (machine.ruleId === 'subst'){
+    const u = s1.val, g = s2.val;
+    // 1) g must be exactly u′
+    const uD = simp(diff(u));
+    if (latex(uD, null) !== latex(simp(JSON.parse(JSON.stringify(g))), null)){
+      missFeedback("u′ must be the derivative of u. Here u′ = " + latex(uD, null).replace(/\\\\/g,'') + ".");
+      return;
+    }
+    // remove the u′ factor from the integrand (replace with 1), then u → uvar
+    let gNid = findNidOf(ai.a, g);
+    if (gNid === -1 && g.t==='div' && g.a.t==='num' && g.a.v===1){
+      // u′ = 1/x sitting as the denominator of A/x: dividing by x IS multiplying by 1/x
+      if (ai.a.t==='div' && ai.a.b._nid && latex(ai.a.b, null) === latex(g.b, null)){
+        gNid = ai.a.b._nid;                    // consume the whole denominator (direct nid)
+      }
+    }
+    if (gNid === -1){
+      missFeedback("u′ must appear as a factor of the integrand — here u′ = " + latex(uD, null).replace(/\\\\/g,'') + " is not present.");
+      return;
+    }
+    let work = replaceNodeByNid(ai.a, gNid, N(1));
+    work = replaceSubtree(work, u, V('u'));
+    work = simp(JSON.parse(JSON.stringify(work)));
+    if (containsVar(work, 'x')){
+      missFeedback('Substitution does not apply — the remaining factor still contains x and cannot be written through u.');
+      return;
+    }
+    const repl = I(work, 'u');
+    tree = replaceNodeByNid(tree, ai._nid, repl);
+    substStack.push({u: JSON.parse(JSON.stringify(u)),
+                     uprime: JSON.parse(JSON.stringify(g))});
+    hitScore(ai, RULES.find(r => r.id==='subst'),
+      'u = ' + latex(u, null) + ',  u\' = ' + latex(g, null));
+    return;
+  }
+  if (machine.ruleId === 'partial'){
+    const u = s1.val, dv = s2.val;
+    // u and dv must be the two factors of the integrand: ∫ u·dv = u·v − ∫ v·du
+    const f = ai.a;
+    const lu = latex(simp(JSON.parse(JSON.stringify(u))), null);
+    const ldv = latex(simp(JSON.parse(JSON.stringify(dv))), null);
+    const la = latex(simp(JSON.parse(JSON.stringify(f.a))), null);
+    const lb = latex(simp(JSON.parse(JSON.stringify(f.b))), null);
+    const factorsMatch = (lu === la && ldv === lb) || (lu === lb && ldv === la);
+    if (f.t !== 'mul' || !factorsMatch){
+      missFeedback('Partial integration rewrites ∫u·dv — the picked u and dv must be the two factors of the integrand (integrand = u·dv).'); return;
+    }
+    const v = antidiff(dv, ai.vx);
+    if (!v){ missFeedback('dv must have a basic antiderivative (power of x, eˣ, sin, cos, 1/x).'); return; }
+    const du = simp(diff(u));
+    const repl = {t:'sub',
+      a:{t:'mul', a:JSON.parse(JSON.stringify(u)), b:v},
+      b: I({t:'mul', a:v, b:du}, ai.vx)};
+    tree = replaceNodeByNid(tree, ai._nid, repl);
+    hitScore(ai, RULES.find(r => r.id==='partial'),
+      'u = ' + latex(u, null) + ',  v\' = ' + latex(dv, null));
+    return;
+  }
+}
+
+function findNidOf(haystack, needle){
+  // needle was deep-cloned from the tree; match by latex
+  const nl = latex(needle, null);
+  let found = null;
+  (function walk(n){
+    if (found || !n || typeof n !== 'object') return;
+    if (latex(n, null) === nl){ found = n._nid; return; }
+    for (const k of ['a','b','arg','base','exp']) if (n[k]) walk(n[k]);
+  })(haystack);
+  return found === null ? -1 : found;
+}
+function containsVar(n, name){
+  if (!n || typeof n !== 'object') return false;
+  if (n.t==='var' && n.name===name) return true;
+  for (const k of ['a','b','arg','base','exp']) if (n[k] && containsVar(n[k], name)) return true;
+  return false;
+}
+function replaceSubtree(n, target, repl){
+  if (!n || typeof n !== 'object') return n;
+  if (latex(n, null) === latex(target, null)) return JSON.parse(JSON.stringify(repl));
+  const out = {t:n.t};
+  for (const k of Object.keys(n)){
+    out[k] = (['a','b','arg','base','exp'].includes(k) && n[k])
+      ? replaceSubtree(n[k], target, repl) : n[k];
+  }
+  return out;
+}
+
+/* ================= levels ================= */
+function poly(mn, mx){ return {t:'mul', a:N(rndInt(2,8)), b:{t:'pow', base:V(), exp:N(rndInt(mn,mx))}}; }
+function lin(c){ return {t:'mul', a:N(c), b:V()}; }
+function shiftUp(s){ return {t:'add', a:V(), b:N(s)}; }
+
+const LEVELS = [
+  {name:"First integrals", tasks:[
+    ()=> I(poly(1,4)), ()=> I(poly(1,4)), ()=> I(lin(rndInt(3,9))), ()=> I(N(rndInt(2,9))),
+   ],
+   goal:"Antidifferentiate simple polynomials: ∫c·xⁿ dx = c·xⁿ⁺¹/(n+1) (and ∫c dx = c·x)."},
+  {name:"Sums of terms", tasks:[
+    ()=> I({t:'add', a:poly(1,3), b:lin(rndInt(2,7))}),
+    ()=> I({t:'sub', a:poly(1,3), b:lin(rndInt(2,6))}),
+    ()=> I({t:'add', a:poly(2,4), b:{t:'add', a:lin(rndInt(2,5)), b:N(rndInt(2,8))}}),
+    ()=> I({t:'sub', a:{t:'add', a:poly(1,3), b:N(rndInt(1,8))}, b:lin(rndInt(2,6))}),
+   ],
+   goal:"Split sums with the sum rule, then antidifferentiate each part."},
+  {name:"Function families", tasks:[
+    ()=> I({t:'mul', a:N(rndInt(2,6)), b:F('cos', V())}),
+    ()=> I({t:'mul', a:N(rndInt(2,6)), b:F('sin', V())}),
+    ()=> I({t:'mul', a:N(rndInt(2,6)), b:F('exp', V())}),
+    ()=> I({t:'div', a:N(rndInt(2,6)), b:V()}),
+   ],
+   goal:"Basic antiderivatives: cos→sin, sin→−cos, eˣ→eˣ, c/x→c·ln|x|."},
+  {name:"Mixed integrand", tasks:[
+    ()=> I({t:'sub', a:poly(1,3), b:{t:'mul', a:N(rndInt(2,5)), b:F('cos', V())}}),
+    ()=> I({t:'add', a:poly(1,3), b:{t:'mul', a:N(rndInt(2,5)), b:F('exp', V())}}),
+    ()=> I({t:'add', a:{t:'mul', a:N(rndInt(2,5)), b:F('sin', V())}, b:poly(1,3)}),
+    ()=> I({t:'add', a:{t:'div', a:N(rndInt(1,4)), b:V()}, b:lin(rndInt(2,5))}),
+   ],
+   goal:"Everything together: sum rule + constant multiple + basic antiderivatives."},
+  {name:"Substitution I", tasks:[
+    ()=> substTask(2, 1, 'pow'),
+    ()=> substTask(2, 3, 'pow'),
+    ()=> substTask(2, 1, 'exp'),
+    ()=> substTask(2, 2, 'sin'),
+   ],
+   goal:"Substitution: pick u AND its derivative u′. The rest of the integrand must be writable through u."},
+  {name:"Substitution II", tasks:[
+    ()=> I({t:'mul', a:{t:'pow', base:F('ln', V()), exp:N(3)}, b:{t:'div', a:N(1), b:V()}}),
+    ()=> I({t:'mul', a:{t:'mul', a:N(2), b:V()}, b:{t:'pow', base:{t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:N(2)}, exp:N(4)}}),
+    ()=> I({t:'mul', a:F('exp', V()), b:{t:'pow', base:{t:'sub', a:F('exp', V()), b:N(1)}, exp:N(3)}}),
+    ()=> I({t:'mul', a:F('cos', V()), b:{t:'pow', base:{t:'add', a:F('sin', V()), b:N(1)}, exp:N(2)}}),
+   ],
+   goal:"Substitution with ln, exponentials and shifted arguments — u and u′ both need selecting."},
+  {name:"Partial integration", tasks:[
+    ()=> I({t:'mul', a:V(), b:F('exp', V())}),
+    ()=> I({t:'mul', a:V(), b:F('cos', V())}),
+    ()=> I({t:'mul', a:V(), b:F('sin', V())}),
+    ()=> I({t:'mul', a:F('ln', V()), b:V()}),
+   ],
+   goal:"Partial integration: choose which factor to differentiate (u) and which to antidifferentiate (dv)."},
+  {name:"Boss: mixed methods", tasks:[
+    ()=> I({t:'mul', a:{t:'pow', base:V(), exp:N(2)}, b:F('exp', V())}),
+    ()=> I({t:'mul', a:shiftUp(1), b:F('exp', V())}),
+    ()=> I({t:'mul', a:F('ln', V()), b:V()}),
+    ()=> I({t:'add', a:{t:'mul', a:V(), b:F('sin', V())}, b:{t:'mul', a:N(rndInt(2,4)), b:F('cos', V())}}),
+   ],
+   goal:"Choose the right method per integral: substitution, partial integration, or basic antiderivatives."},
+];
+function substTask(a, b, kind){
+  const u = {t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:N(b)};
+  const g = diff(u);
+  let h;
+  if (kind==='pow') h = {t:'pow', base:JSON.parse(JSON.stringify(u)), exp:N(rndInt(2,4))};
+  if (kind==='exp') h = F('exp', JSON.parse(JSON.stringify(u)));
+  if (kind==='sin') h = F('sin', JSON.parse(JSON.stringify(u)));
+  return I(simp({t:'mul', a:g, b:h}));
+}
+
+/* ================= level flow ================= */
+function loadLevel(i){
+  level = i; aimNid = null; machine = null;
+  nidCounter = 1; substStack = [];
+  const L = LEVELS[i];
+  tree = simp(rnd(L.tasks)());
+  assignNids(tree);
+  history = [{tex: latex(tree, null), ruleName: null,
+              tree: JSON.parse(JSON.stringify(tree))}];
+  $('objective').innerHTML = `Level ${i+1} — <b>${L.name}</b> · ${L.goal}`;
+  document.querySelectorAll('.lvlbtn').forEach((b,j)=>{
+    b.classList.toggle('active', j===i);
+    b.classList.toggle('done', cleared.has(j));
+  });
+  $('doneOverlay').classList.remove('show');
+  updateMachineUI();
+  render(); hud();
+}
+function levelCleared(){
+  cleared.add(level);
+  document.querySelectorAll('.lvlbtn')[level].classList.add('done');
+  $('doneTitle').textContent = 'Level cleared';
+  katexRender($('doneExpr'), latex(tree, null));
+  $('doneStats').textContent =
+    `Score ${score} · misses this session: ${misses} · every integral resolved, +C included.`;
+  const last = level === LEVELS.length-1;
+  $('nextBtn').textContent = last ? 'Finish' : 'Next level →';
+  $('doneOverlay').classList.add('show');
+}
+$('nextBtn').addEventListener('click', ()=>{
+  $('doneOverlay').classList.remove('show');
+  if (level === LEVELS.length-1){
+    $('winStats').textContent = `Final score ${score}, ${misses} missed shots across all levels.`;
+    $('winOverlay') && $('winOverlay').classList.add('show');
+    return;
+  }
+  loadLevel(level+1);
+});
+$('replayBtn').addEventListener('click', ()=> loadLevel(level));
+
+/* ================= walkthrough ================= */
+function showReview(){
+  $('doneOverlay').classList.remove('show');
+  $('reviewOverlay').classList.add('show');
+  renderReview();
+}
+function renderReview(){
+  const sheet = $('reviewSheet');
+  sheet.innerHTML = '';
+  history.forEach((h, i) => {
+    const line = document.createElement('div');
+    line.className = 'review-line' + (i===0?' start':'') + (i===history.length-1?' final':'');
+    const sign = document.createElement('div');
+    sign.className = 'rl-sign';
+    sign.textContent = i===0 ? '' : '=';
+    line.appendChild(sign);
+    const math = document.createElement('span');
+    math.className = 'rl-math';
+    katexRender(math, h.tex);
+    line.appendChild(math);
+    const note = document.createElement('div');
+    note.className = 'rl-note';
+    note.textContent = i===0 ? 'Original task'
+      : '⟵ ' + h.ruleName + (i===history.length-1 ? ' — final result' : '');
+    line.appendChild(note);
+    if (h.detail){
+      const det = document.createElement('div');
+      det.className = 'rl-detail';
+      // detail = "u = <latex>,  u' = <latex>" — render each side in KaTeX
+      const tex = h.detail.split(',').map(s => s.trim()).join(',\\; ');
+      katexRender(det, tex);
+      line.appendChild(det);
+    }
+    sheet.appendChild(line);
+  });
+}
+$('reviewBtn').addEventListener('click', showReview);
+$('rvClose').addEventListener('click', ()=>{
+  $('reviewOverlay').classList.remove('show');
+  $('doneOverlay').classList.add('show');
+});
+
+/* ================= build UI ================= */
+const levelsNav = $('levels');
+LEVELS.forEach((L,i)=>{
+  const b = document.createElement('button');
+  b.className = 'lvlbtn'; b.textContent = (i+1) + '·' + L.name;
+  b.addEventListener('click', ()=> loadLevel(i));
+  levelsNav.appendChild(b);
+});
+const tray = $('tray');
+RULES.forEach(r=>{
+  const c = document.createElement('button');
+  c.className = 'card'; c.dataset.rule = r.id;
+  c.innerHTML = `<span class="name">${r.name}</span><span class="key">${r.key}</span><div class="formula"></div>`;
+  tray.appendChild(c);
+  katexRender(c.querySelector('.formula'), r.tex);
+  c.addEventListener('click', ()=> fire(r));
+});
+document.addEventListener('keydown', ev=>{
+  const r = RULES.find(r => r.key === ev.key);
+  if (r && !machine) fire(r);
+});
+loadLevel(0);
+</script>
+<footer>Created by Henrik Skov Midtiby · Associate Professor, University of Southern Denmark · <a href="https://portal.findresearcher.sdu.dk/da/persons/henrik-skov-midtiby/">research profile</a></footer>
+</body>
+</html>

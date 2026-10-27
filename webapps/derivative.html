@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rule Shooter — a differentiation game</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161a; --panel:#1c1f26; --panel2:#22262f; --border:#333947;
+    --ink:#e8e6df; --muted:#9aa0ad;
+    --amber:#f5b83d; --green:#5fd68a; --red:#ef6a5a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Chakra Petch",sans-serif;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    padding:12px 20px; border-bottom:1px solid var(--border);
+  }
+  header h1{font-size:19px; margin:0; letter-spacing:.04em}
+  header h1 em{color:var(--amber); font-style:normal}
+  .levels{display:flex; gap:6px; flex-wrap:wrap}
+  .lvlbtn{
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+    font:inherit; font-size:13px; padding:5px 11px; cursor:pointer; border-radius:3px;
+  }
+  .lvlbtn:hover{color:var(--ink)}
+  .lvlbtn.active{border-color:var(--amber); color:var(--amber)}
+  .lvlbtn.done{color:var(--green); border-color:#2c5a3d}
+  .hud{margin-left:auto; display:flex; gap:18px; font-size:14px}
+  .hud b{color:var(--amber); font-variant-numeric:tabular-nums}
+  main{flex:1; display:flex; flex-direction:column; padding:14px 20px 8px; gap:12px;
+    width:100%; margin:0 auto}
+  .cols{display:grid; grid-template-columns:1fr minmax(260px, 380px); gap:14px;
+    align-items:start; flex:1; min-height:0}
+  .gamecol{display:flex; flex-direction:column; gap:12px; min-width:0}
+  .objective{color:var(--muted); font-size:14px; min-height:18px}
+  .objective b{color:var(--ink)}
+  #stage{
+    background:var(--panel); border:1px solid var(--border); border-radius:6px;
+    padding:44px 24px; text-align:center; overflow-x:auto; position:relative;
+  }
+  #stage.shake{animation:shake .35s}
+  @keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+  #expr{font-size:1.5em; line-height:2.2}
+  #expr .pending{cursor:crosshair; border-radius:4px; padding:2px 3px; transition:background .12s;
+    border-bottom:2px dashed var(--amber)}
+  #expr .pending:hover{background:#3a3320}
+  #expr .pending.sel{background:var(--amber); color:#14161a !important}
+  #expr .pending.sel .katex *{color:#14161a !important}
+  #expr.pop .pending{animation:none}
+  @keyframes pop{from{opacity:.2; transform:scale(.96)}to{opacity:1; transform:scale(1)}}
+  #expr.pop{animation:pop .22s}
+  .targets{color:var(--muted); font-size:13px; text-align:center}
+  .targets b{color:var(--amber)}
+  #pathWrap{border:1px solid var(--border); border-radius:6px; background:var(--panel);
+    padding:10px 12px; display:flex; flex-direction:column; gap:8px;
+    position:sticky; top:12px; max-height:calc(100vh - 90px); overflow:hidden}
+  #pathWrap .plabel{font-size:11px; letter-spacing:.08em; color:var(--muted); flex:none}
+  #path{display:flex; flex-direction:column; gap:10px; overflow-y:auto;
+    padding:4px 4px 8px; scrollbar-width:thin}
+  #path .step{display:flex; align-items:center; gap:8px; min-width:0}
+  #path .step .smath{font-size:.88em; min-width:0; overflow-x:auto; scrollbar-width:none}
+  #path .step .sname{font-size:10px; color:var(--muted); flex:none; width:86px;
+    text-align:right; white-space:normal}
+  #path .step:last-child .smath .katex{outline:1px solid var(--amber); border-radius:4px; padding:3px 5px; display:inline-block}
+  #path .step.clickable{cursor:pointer}
+  #path .step.clickable:hover .sname{color:var(--amber)}
+  #tray{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:8px; padding:6px 0 18px;
+  }
+  .card{
+    background:var(--panel2); border:1px solid var(--border); border-radius:5px;
+    padding:9px 12px; cursor:pointer; position:relative; text-align:left;
+    font:inherit; color:var(--ink);
+  }
+  .card:hover{border-color:var(--amber)}
+  .card .name{font-size:12px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase}
+  .card .key{position:absolute; top:7px; right:9px; font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:3px; padding:0 5px}
+  .card .formula{margin-top:5px; font-size:.95em; overflow:hidden}
+  .card.wrong{animation:cardno .4s; border-color:var(--red)}
+  @keyframes cardno{25%{transform:translateX(-5px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--panel2); border:1px solid var(--border); border-radius:5px;
+    padding:10px 18px; font-size:14px; opacity:0; pointer-events:none;
+    transition:opacity .18s; max-width:90vw;
+  }
+  #toast.bad{border-color:var(--red); color:var(--red)}
+  #toast.good{border-color:var(--green); color:var(--green)}
+  #toast.show{opacity:1}
+  .shot{position:fixed; width:10px; height:10px; border-radius:50%; background:var(--amber); z-index:50; pointer-events:none; box-shadow:0 0 8px var(--amber)}
+  /* overlays */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,11,14,.82); display:none;
+    align-items:center; justify-content:center; z-index:60;
+  }
+  .overlay.show{display:flex}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:34px 44px; text-align:center; max-width:560px;
+  }
+  .panel h2{margin:0 0 6px; font-size:24px}
+  .panel .final{margin:18px 0; font-size:1.25em}
+  .panel .stats{color:var(--muted); font-size:14px; margin-bottom:20px}
+  .panel button{
+    font:inherit; font-size:15px; background:var(--amber); color:#14161a; border:0;
+    padding:10px 26px; border-radius:4px; cursor:pointer; font-weight:600;
+  }
+  .panel button.ghost{background:none; border:1px solid var(--border); color:var(--muted); margin-left:10px}
+  .winmark{color:var(--green)}
+  .review-step{margin:20px 0 8px; font-size:1.3em; overflow-x:auto}
+  .review-rule{color:var(--amber); font-size:14px; min-height:20px}
+  .review-nav{display:flex; align-items:center; justify-content:center; gap:16px; margin:16px 0 4px}
+  .review-nav button{
+    font:inherit; font-size:14px; background:var(--panel2); border:1px solid var(--border);
+    color:var(--ink); padding:8px 18px; border-radius:4px; cursor:pointer;
+  }
+  .review-nav button:disabled{opacity:.35; cursor:default}
+  .review-pos{font-size:13px; color:var(--muted); min-width:70px; font-variant-numeric:tabular-nums}
+  .review-hint{font-size:11px; color:var(--muted); margin-bottom:14px}
+  /* full-sheet solution view: all steps, = aligned, rule comment right */
+  .review-sheet{
+    text-align:left; margin:18px 0 14px; font-size:1.05em;
+    max-height:62vh; overflow-y:auto; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); padding:14px 18px;
+  }
+  .review-line{display:flex; align-items:baseline; gap:14px; padding:7px 0;
+    border-bottom:1px dashed #262a33}
+  .review-line:last-child{border-bottom:0}
+  .review-line .rl-math{flex:1; min-width:0; overflow-x:auto; scrollbar-width:none}
+  .review-line .rl-sign{color:var(--muted); flex:none; width:18px; text-align:center}
+  .review-line .rl-note{flex:none; width:170px; font-size:12px; color:var(--muted); text-align:left}
+  .review-line.start .rl-note{color:var(--ink)}
+  .review-line.final .rl-note{color:var(--green)}
+
+  footer{border-top:1px solid var(--border); color:var(--muted); font-size:12px;
+    text-align:center; padding:10px 16px 14px}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--ink)}
+  @media (prefers-reduced-motion: reduce){
+    #stage.shake,.card.wrong,#expr.pop,.shot{animation:none !important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>RULE <em>SHOOTER</em> · d/dx</h1>
+  <nav class="levels" id="levels"></nav>
+  <div class="hud">
+    <span>SCORE <b id="score">0</b></span>
+    <span>COMBO <b id="combo">×1</b></span>
+    <span>MISSES <b id="misses">0</b></span>
+  </div>
+</header>
+
+<main>
+  <div class="objective" id="objective"></div>
+  <div class="cols">
+    <div class="gamecol">
+      <div id="stage"><div id="expr"></div></div>
+      <div class="targets" id="targets"></div>
+      <div id="tray"></div>
+    </div>
+    <div id="pathWrap"><span class="plabel">SOLUTION PATH</span><div id="path"></div></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<div class="overlay" id="doneOverlay">
+  <div class="panel">
+    <h2 class="winmark" id="doneTitle">Level cleared</h2>
+    <div class="final" id="doneExpr"></div>
+    <div class="stats" id="doneStats"></div>
+    <button id="tidyBtn" class="ghost">Tidy up the result</button>
+    <button id="reviewBtn" class="ghost">Walk through the solution</button>
+    <button id="nextBtn">Next level →</button>
+    <button class="ghost" id="replayBtn">Replay level</button>
+  </div>
+</div>
+
+<div class="overlay" id="reviewOverlay">
+  <div class="panel" style="max-width:1200px; width:92vw">
+    <h2 id="reviewTitle">Solution walkthrough</h2>
+    <div class="review-sheet" id="reviewSheet"></div>
+    <div class="review-hint">Equal signs aligned; the rule for each line is on the right.</div>
+    <button id="rvClose" class="ghost">Close walkthrough</button>
+  </div>
+</div>
+
+<div class="overlay" id="winOverlay">
+  <div class="panel">
+    <h2 class="winmark">All levels cleared</h2>
+    <div class="stats" id="winStats"></div>
+    <button onclick="document.getElementById('winOverlay').classList.remove('show')">Close</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------------- expression tree ---------------- */
+// nodes: {t:'num',v} {t:'var'} {t:'add'|'sub'|'mul'|'div',a,b} {t:'pow',base,exp}
+//        {t:'fn',name,arg} {t:'neg',a} {t:'pend',inner,id}
+let pendCounter = 1;
+const P = inner => ({t:'pend', inner, id: pendCounter++});
+const N = v => ({t:'num', v});
+const V = () => ({t:'var'});
+
+/* random helpers for task variation */
+const rnd = arr => arr[Math.floor(Math.random()*arr.length)];
+const rndInt = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+function poly(mn, mx){   // random monomial c·x^n, n>=1
+  return {t:'mul', a:N(rndInt(2,6)), b:{t:'pow', base:V(), exp:N(rndInt(mn,mx))}};
+}
+function linear(c){ return {t:'mul', a:N(c), b:V()}; }
+function shift(s){ return {t:'add', a:V(), b:N(s)}; }   // x + s
+
+/* ---------------- level task banks (4 variants each, picked at random) ---------------- */
+const LEVELS = [
+  {name:"First shot", rules:['power'], tasks:[
+    ()=> P({t:'pow', base:V(), exp:N(rndInt(3,6))}),
+    ()=> P({t:'pow', base:V(), exp:N(rndInt(2,5))}),
+    ()=> P({t:'pow', base:V(), exp:N(rndInt(4,7))}),
+    ()=> P({t:'pow', base:V(), exp:N(rndInt(3,5))}),
+   ],
+   goal:"Differentiate a power of x. Pick the target, then fire the rule that matches it."},
+  {name:"Warm-up", rules:['power','constant','sum','constmult'], tasks:[
+    ()=> P({t:'add', a:poly(2,4), b:linear(rndInt(2,7))}),
+    ()=> P({t:'sub', a:poly(2,3), b:linear(rndInt(3,6))}),
+    ()=> P({t:'add', a:poly(3,5), b:{t:'add', a:linear(rndInt(2,5)), b:N(rndInt(2,9))}}),
+    ()=> P({t:'sub', a:{t:'add', a:poly(2,4), b:N(rndInt(1,8))}, b:linear(rndInt(2,6))}),
+   ],
+   goal:"A sum/difference of terms — break it apart with the sum rule, then finish each piece."},
+  {name:"The product", rules:['power','constant','sum','constmult','basic','product'], tasks:[
+    ()=> P({t:'mul', a:V(), b:{t:'fn', name:'sin', arg:V()}}),
+    ()=> P({t:'mul', a:V(), b:{t:'fn', name:'cos', arg:V()}}),
+    ()=> P({t:'mul', a:{t:'pow', base:V(), exp:N(rndInt(2,4))}, b:{t:'fn', name:'sin', arg:V()}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'exp', arg:V()}, b:{t:'fn', name:'cos', arg:V()}}),
+   ],
+   goal:"A product of two factors — the product rule leaves two new pending derivatives."},
+  {name:"Exponential", rules:['power','constant','sum','constmult','basic','product'], tasks:[
+    ()=> P({t:'mul', a:{t:'pow', base:V(), exp:N(rndInt(2,4))}, b:{t:'fn', name:'exp', arg:V()}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'exp', arg:V()}, b:{t:'fn', name:'sin', arg:V()}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'exp', arg:V()}, b:{t:'pow', base:V(), exp:N(rndInt(2,5))}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'ln', arg:V()}, b:{t:'pow', base:V(), exp:N(rndInt(2,3))}}),
+   ],
+   goal:"Product of two non-trivial factors: product rule first, then finish each factor."},
+  {name:"Inner function", rules:['power','constant','sum','constmult','basic','product','chain'], tasks:[
+    ()=> P({t:'fn', name:'sin', arg:{t:'pow', base:V(), exp:N(rndInt(2,4))}}),
+    ()=> P({t:'fn', name:'cos', arg:{t:'pow', base:V(), exp:N(rndInt(2,3))}}),
+    ()=> P({t:'fn', name:'exp', arg:{t:'pow', base:V(), exp:N(2)}}),
+    ()=> P({t:'fn', name:'sin', arg:linear(rndInt(2,6))}),
+   ],
+   goal:"A function of something that isn't plain x — the chain rule applies."},
+  {name:"The quotient", rules:['power','constant','sum','constmult','basic','product','chain','quotient'], tasks:[
+    ()=> P({t:'div', a:{t:'pow', base:V(), exp:N(rndInt(2,3))}, b:shift(1)}),
+    ()=> P({t:'div', a:{t:'fn', name:'sin', arg:V()}, b:shift(rndInt(1,3))}),
+    ()=> P({t:'div', a:V(), b:{t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:N(1)}}),
+    ()=> P({t:'div', a:{t:'fn', name:'exp', arg:V()}, b:{t:'pow', base:V(), exp:N(rndInt(1,2))}}),
+   ],
+   goal:"A quotient u/v — the quotient rule, then keep shooting until nothing pends."},
+  {name:"Boss: combo", rules:['power','constant','sum','constmult','basic','product','chain'], tasks:[
+    ()=> P({t:'mul', a:V(), b:{t:'fn', name:'sin', arg:{t:'pow', base:V(), exp:N(2)}}}),
+    ()=> P({t:'mul', a:{t:'pow', base:V(), exp:N(2)}, b:{t:'fn', name:'cos', arg:{t:'pow', base:V(), exp:N(3)}}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'exp', arg:{t:'pow', base:V(), exp:N(2)}}, b:V()}),
+    ()=> P({t:'fn', name:'sin', arg:{t:'mul', a:V(), b:{t:'fn', name:'exp', arg:V()}}}),
+   ],
+   goal:"Several rules needed, in the right order — product and chain working together."},
+  {name:"Triple chain", rules:['power','constant','sum','constmult','basic','product','chain'], tasks:[
+    ()=> P({t:'fn', name:'sin', arg:{t:'fn', name:'exp', arg:{t:'fn', name:'ln', arg:{t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:N(1)}}}}),
+    ()=> P({t:'fn', name:'cos', arg:{t:'fn', name:'ln', arg:{t:'fn', name:'exp', arg:{t:'pow', base:V(), exp:N(2)}}}}),
+    ()=> P({t:'fn', name:'exp', arg:{t:'fn', name:'sin', arg:{t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:V()}}}),
+    ()=> P({t:'fn', name:'ln', arg:{t:'fn', name:'cos', arg:{t:'fn', name:'exp', arg:{t:'pow', base:V(), exp:N(2)}}}}),
+   ],
+   goal:"Chain rule three times, working from the outside in. Then finish the inside."},
+  {name:"Nested products", rules:['power','constant','sum','constmult','basic','product','chain'], tasks:[
+    ()=> P({t:'mul', a:{t:'mul', a:{t:'fn', name:'sin', arg:V()}, b:{t:'pow', base:V(), exp:N(2)}}, b:{t:'fn', name:'exp', arg:{t:'fn', name:'cos', arg:V()}}}),
+    ()=> P({t:'mul', a:{t:'mul', a:{t:'fn', name:'cos', arg:V()}, b:{t:'fn', name:'exp', arg:V()}}, b:{t:'fn', name:'sin', arg:{t:'pow', base:V(), exp:N(2)}}}),
+    ()=> P({t:'mul', a:{t:'pow', base:V(), exp:N(3)}, b:{t:'mul', a:{t:'fn', name:'ln', arg:V()}, b:{t:'fn', name:'sin', arg:V()}}}),
+    ()=> P({t:'mul', a:{t:'fn', name:'exp', arg:{t:'fn', name:'sin', arg:V()}}, b:{t:'mul', a:{t:'pow', base:V(), exp:N(2)}, b:V()}}),
+   ],
+   goal:"A product inside a product — the product rule fires more than once."},
+  {name:"Final boss: tower", rules:['power','constant','sum','constmult','basic','product','chain'], tasks:[
+    ()=> P({t:'pow', base:{t:'add', a:{t:'mul', a:{t:'pow', base:V(), exp:N(3)}, b:{t:'fn', name:'sin', arg:V()}}, b:N(1)}, exp:N(4)}),
+    ()=> P({t:'pow', base:{t:'add', a:{t:'mul', a:{t:'fn', name:'cos', arg:V()}, b:{t:'fn', name:'exp', arg:V()}}, b:N(rndInt(1,3))}, exp:N(rndInt(3,5))}),
+    ()=> P({t:'pow', base:{t:'add', a:{t:'mul', a:{t:'pow', base:V(), exp:N(2)}, b:{t:'fn', name:'exp', arg:V()}}, b:shift(rndInt(1,2))}, exp:N(rndInt(3,4))}),
+    ()=> P({t:'pow', base:{t:'sub', a:{t:'mul', a:{t:'fn', name:'sin', arg:V()}, b:{t:'fn', name:'ln', arg:V()}}, b:V()}, exp:N(rndInt(3,5))}),
+   ],
+   goal:"Chain rule outside, then a product inside, then more within each factor. The longest solution paths in the game."},
+  {name:"x to the x", rules:['power','constant','sum','constmult','product','chain','basic','expform'], tasks:[
+    ()=> P({t:'pow', base:V(), exp:V()}),
+    ()=> P({t:'pow', base:V(), exp:{t:'add', a:{t:'pow', base:V(), exp:N(2)}, b:V()}}),
+    ()=> P({t:'pow', base:{t:'add', a:V(), b:N(1)}, exp:V()}),
+    ()=> P({t:'pow', base:V(), exp:{t:'fn', name:'exp', arg:V()}}),
+   ],
+   goal:"Variable base AND variable exponent — rewrite using e^(g·ln f), then differentiate."},
+  {name:"Trig exponent", rules:['power','constant','sum','constmult','product','chain','basic','expform'], tasks:[
+    ()=> P({t:'pow', base:V(), exp:{t:'fn', name:'sin', arg:V()}}),
+    ()=> P({t:'pow', base:V(), exp:{t:'fn', name:'cos', arg:V()}}),
+    ()=> P({t:'pow', base:{t:'add', a:V(), b:N(1)}, exp:{t:'fn', name:'sin', arg:V()}}),
+    ()=> P({t:'pow', base:V(), exp:{t:'fn', name:'sin', arg:{t:'pow', base:V(), exp:N(2)}}}),
+   ],
+   goal:"Variable in the exponent: rewrite, then chain + product + basic derivatives."},
+  {name:"Boss: exp forms", rules:['power','constant','sum','constmult','product','chain','basic','expform'], tasks:[
+    ()=> P({t:'add', a:{t:'pow', base:N(rndInt(2,5)), exp:{t:'pow', base:V(), exp:N(2)}}, b:{t:'pow', base:V(), exp:V()}}),
+    ()=> P({t:'add', a:{t:'pow', base:{t:'add', a:V(), b:N(1)}, exp:V()}, b:{t:'pow', base:V(), exp:{t:'fn', name:'cos', arg:V()}}}),
+    ()=> P({t:'sub', a:{t:'pow', base:N(rndInt(2,4)), exp:{t:'fn', name:'sin', arg:V()}}, b:{t:'pow', base:V(), exp:V()}}),
+    ()=> P({t:'add', a:{t:'pow', base:V(), exp:{t:'mul', a:{t:'fn', name:'sin', arg:V()}, b:{t:'fn', name:'cos', arg:V()}}}, b:{t:'pow', base:{t:'add', a:V(), b:N(1)}, exp:V()}}),
+   ],
+   goal:"Both terms have variable exponents. Rewrite each with the exponential form, then differentiate normally."},
+];
+
+const RULES = [
+  {id:'constant', name:'Constant rule', key:'1',
+   tex:'\\tfrac{d}{dx}c = 0',
+   match: e => e.t==='num',
+   apply: e => N(0)},
+  {id:'power', name:'Power rule', key:'2',
+   tex:'\\tfrac{d}{dx}x^n = n\\,x^{n-1}',
+   match: e => e.t==='var' || (e.t==='pow' && e.base.t==='var' && e.exp.t==='num'),
+   apply: e => {
+     if (e.t==='var') return N(1);
+     const n = e.exp.v;
+     return N(n) === null ? null : simp(mulN(N(n), n===1 ? V() : (n===0 ? N(1) : {t:'pow', base:V(), exp:N(n-1)})));
+   }},
+  {id:'sum', name:'Sum rule', key:'3',
+   tex:'\\tfrac{d}{dx}(u\\pm v)=\\tfrac{d}{dx}u\\pm\\tfrac{d}{dx}v',
+   match: e => e.t==='add' || e.t==='sub',
+   apply: e => ({t:e.t, a:P(e.a), b:P(e.b)})},
+  {id:'constmult', name:'Constant multiple', key:'4',
+   tex:'\\tfrac{d}{dx}(c\\,u)=c\\,\\tfrac{d}{dx}u',
+   match: e => e.t==='mul' && (e.a.t==='num' || e.b.t==='num'),
+   apply: e => e.a.t==='num' ? {t:'mul', a:e.a, b:P(e.b)} : {t:'mul', a:P(e.a), b:e.b}},
+  {id:'product', name:'Product rule', key:'5',
+   tex:"(uv)'=u'v+uv'",
+   match: e => e.t==='mul',
+   apply: e => ({t:'add', a:{t:'mul', a:P(e.a), b:e.b}, b:{t:'mul', a:e.a, b:P(e.b)}})},
+  {id:'quotient', name:'Quotient rule', key:'6',
+   tex:"\\left(\\tfrac{u}{v}\\right)'=\\tfrac{u'v-uv'}{v^2}",
+   match: e => e.t==='div',
+   apply: e => ({t:'div',
+     a:{t:'sub', a:{t:'mul', a:P(e.a), b:e.b}, b:{t:'mul', a:e.a, b:P(e.b)}},
+     b:{t:'pow', base:e.b, exp:N(2)}})},
+  {id:'chain', name:'Chain rule', key:'7',
+   tex:"\\tfrac{d}{dx}f(u)=f'(u)\\cdot\\tfrac{d}{dx}u",
+   match: e => (e.t==='fn' && e.arg.t!=='var') ||
+               (e.t==='pow' && e.base.t!=='var' && e.exp.t==='num'),
+   apply: e => {
+     if (e.t==='pow'){
+       // d/dx u^n = n·u^(n-1)·d/dx(u)  — chain rule with outer function u↦u^n
+       const n = e.exp.v;
+       const newPow = n===1 ? e.base : (n===0 ? N(1) : {t:'pow', base:e.base, exp:N(n-1)});
+       return {t:'mul', a:simp(mulN(N(n), newPow)), b:P(e.base)};
+     }
+     return {t:'mul', a:outerDeriv(e), b:P(e.arg)};
+   }},
+  {id:'basic', name:'Basic derivatives', key:'8',
+   tex:"(\\sin x)'=\\cos x",
+   match: e => e.t==='fn' && e.arg.t==='var',
+   apply: e => outerDeriv(e)},
+  {id:'expform', name:'Exp form rewrite', key:'9',
+   tex:"f^g = \\mathrm{e}^{g\\,\\ln f}",
+   match: e => e.t==='pow' && e.exp.t!=='num',
+   apply: e => P({t:'fn', name:'exp', arg:{t:'mul', a:e.exp, b:{t:'fn', name:'ln', arg:e.base}}})},
+  {id:'reciprocal', name:'Reciprocal rewrite', key:'0',
+   tex:"\\tfrac{f}{g} = f\\cdot g^{-1}",
+   match: e => e.t==='div',
+   apply: e => P({t:'mul', a:e.a, b:{t:'pow', base:e.b, exp:N(-1)}})},
+  {id:'tidy', name:'Tidy up', key:'q',
+   tex:"1+0 \\to 1,\\; x\\cdot 1 \\to x",
+   match: e => true,   // applies anywhere there is something to tidy
+   apply: null},       // handled specially in resolve()
+];
+
+function outerDeriv(e){
+  const u = e.arg;
+  switch(e.name){
+    case 'sin': return {t:'fn', name:'cos', arg:u};
+    case 'cos': return {t:'neg', a:{t:'fn', name:'sin', arg:u}};
+    case 'exp': return {t:'fn', name:'exp', arg:u};
+    case 'ln':  return {t:'div', a:N(1), b:u};
+  }
+}
+function mulN(a,b){ return {t:'mul', a, b}; }
+function isPowOfVar(n){ return n.t==='var' || (n.t==='pow' && n.base.t==='var' && n.exp.t==='num'); }
+function powExp(n){ return n.t==='var' ? N(1) : n.exp; }
+
+/* ---------------- simplification (arithmetic only) ---------------- */
+function simp(node){
+  if (!node || typeof node !== 'object') return node;
+  for (let i=0; i<6; i++){
+    const r = simpOnce(node);
+    if (r === node) break;
+    node = r;
+  }
+  return node;
+}
+function simpOnce(n){
+  switch(n.t){
+    case 'add': case 'sub': case 'mul': case 'div': {
+      const a = simpOnce(n.a), b = simpOnce(n.b);
+      if (n.t==='add' || n.t==='sub'){
+        if (b.t==='num' && b.v===0) return a;               // u+0, u-0
+        if (n.t==='add' && a.t==='num' && a.v===0) return b; // 0+u
+        if (a.t==='num' && b.t==='num') return N(a.v + (n.t==='add' ? b.v : -b.v));
+        // u + (-v)  →  u - v      and      u - (-v)  →  u + v
+        if (b.t==='neg') return simpOnce({t: n.t==='add' ? 'sub' : 'add', a, b: b.a});
+      }
+      if (n.t==='mul'){
+        if (a.t==='num' && b.t==='num') return N(a.v*b.v);
+        if (a.t==='num' && a.v===0) return N(0);
+        if (b.t==='num' && b.v===0) return N(0);
+        if (a.t==='num' && a.v===1) return b;
+        if (b.t==='num' && b.v===1) return a;
+        if (a.t==='num' && b.t==='mul' && b.a.t==='num') return simpOnce({t:'mul', a:N(a.v*b.a.v), b:b.b});
+        if (a.t==='num' && b.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a, b:b.a}});
+        // x^m · x^n = x^(m+n)  (covers x·x too)
+        if (isPowOfVar(a) && isPowOfVar(b)) return simpOnce({t:'pow', base:V(), exp:{t:'add', a:powExp(a), b:powExp(b)}});
+        // x^m · (x^n · u) = x^(m+n) · u
+        if (isPowOfVar(a) && b.t==='mul' && isPowOfVar(b.a)) return simpOnce({t:'mul', a:{t:'pow', base:V(), exp:{t:'add', a:powExp(a), b:powExp(b.a)}}, b:b.b});
+        // (u · x^m) · x^n = u · x^(m+n)
+        if (isPowOfVar(b) && a.t==='mul' && isPowOfVar(a.b)) return simpOnce({t:'mul', a:a.a, b:{t:'pow', base:V(), exp:{t:'add', a:powExp(a.b), b:powExp(b)}}});
+        // (-u) · v  →  -(u · v)      and      u · (-v)  →  -(u · v)
+        if (a.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a:a.a, b}});
+        if (b.t==='neg') return simpOnce({t:'neg', a:{t:'mul', a, b:b.a}});
+      }
+      return {t:n.t, a, b};
+    }
+    case 'pow': {
+      const base = simpOnce(n.base), exp = simpOnce(n.exp);
+      if (base.t==='var' && exp.t==='num' && exp.v===1) return V();
+      if (exp.t==='num' && exp.v===0 && (base.t==='var'||base.t==='num')) return N(1);
+      return {t:'pow', base, exp};
+    }
+    case 'neg': {
+      const a = simpOnce(n.a);
+      if (a.t==='num') return N(-a.v);
+      return {t:'neg', a};
+    }
+    case 'fn': return {t:'fn', name:n.name, arg:simpOnce(n.arg)};
+    case 'pend': return {t:'pend', inner:simpOnce(n.inner), id:n.id};
+    default: return n;
+  }
+}
+
+/* ---------------- LaTeX serialisation ---------------- */
+const FN_TEX = {sin:'\\sin ', cos:'\\cos ', exp:'exp', ln:'\\ln '};
+function latex(node, selId){
+  const sel = selId === null ? '' : (node.t==='pend' && node.id===selId ? ' sel' : ' pend');
+  const prec = {add:40, sub:40, mul:50, div:60, neg:60, pow:90, fn:95, num:100, var:100, pend:100};
+  const p = prec[node.t] || 100;
+  const child = (c, min) => {
+    const cp = prec[c.t] || 100;
+    const s = latex(c, selId);
+    return cp < min ? `\\left(${s}\\right)` : s;
+  };
+  switch(node.t){
+    case 'num': return node.v < 0 ? `(${node.v})` : String(node.v);
+    case 'var': return 'x';
+    case 'add': return child(node.a,41) + ' + ' + child(node.b,41);
+    case 'sub': return child(node.a,41) + ' - ' + child(node.b,41);
+    case 'mul': return child(node.a,51) + ' \\cdot ' + child(node.b,51);
+    case 'div': return `\\frac{${latex(node.a,selId)}}{${latex(node.b,selId)}}`;
+    case 'neg': return '-' + child(node.a,61);
+    case 'pow': {
+      const bs = latex(node.base, selId);
+      const b = (prec[node.base.t] < 90) ? `\\left(${bs}\\right)` : bs;
+      // parenthesize the exponent when it isn't a simple atom (num/var):
+      // makes application order explicit, e.g. x^{(e^x)}, x^{(x^{(2)})}
+      const es = latex(node.exp, selId);
+      const e = (prec[node.exp.t] < 100) ? `\\left(${es}\\right)` : es;
+      return `${b}^{${e}}`;
+    }
+    case 'fn': {
+      const f = FN_TEX[node.name];
+      return node.name==='exp' ? `\\mathrm{e}^{${latex(node.arg,selId)}}` : `${f}\\left(${latex(node.arg,selId)}\\right)`;
+    }
+    case 'pend':
+      return `\\htmlData{pid=${node.id}}{\\htmlClass{pending${node.id===selId?' sel':''}}{` +
+             `\\tfrac{d}{dx}\\left(${latex(node.inner, selId)}\\right)}}`;
+  }
+}
+
+/* ---------------- game state ---------------- */
+let tree = null, level = 0, selId = null, score = 0, combo = 1, misses = 0;
+let history = [];   // [{tex, ruleName|null, treeSnapshot}] — path from start to current
+let cleared = new Set();
+const $ = id => document.getElementById(id);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function katexRender(el, tex){
+  katex.render(tex, el, {trust:true, strict:false, throwOnError:false, displayMode:false});
+}
+
+function render(){
+  katexRender($('expr'), latex(tree, selId));
+  const n = countPend(tree);
+  $('targets').innerHTML = n === 0 ? '' :
+    `Pending derivatives: <b>${n}</b> — click one to aim, then fire a rule (keys 1–8).`;
+  renderPath();
+}
+
+function renderPath(){
+  const path = $('path');
+  path.innerHTML = '';
+  history.forEach((h, i) => {
+    const s = document.createElement('div');
+    const isCurrent = i === history.length - 1;
+    s.className = 'step' + (isCurrent ? '' : ' clickable');
+    const lbl = document.createElement('div');
+    lbl.className = 'sname';
+    lbl.textContent = h.ruleName ? '⟵ ' + h.ruleName : 'start';
+    s.appendChild(lbl);
+    const el = document.createElement('span');
+    el.className = 'smath';
+    katexRender(el, h.tex);
+    s.appendChild(el);
+    if (!isCurrent){
+      s.title = 'Click to go back to this step';
+      s.addEventListener('click', ()=> restoreStep(i));
+    }
+    path.appendChild(s);
+  });
+  path.scrollTop = path.scrollHeight;   // keep newest step visible
+}
+
+function restoreStep(i){
+  if (i < 0 || i >= history.length - 1) return;   // can't "restore" the current step
+  tree = JSON.parse(JSON.stringify(history[i].tree));
+  history = history.slice(0, i + 1);
+  selId = null;
+  // combo resets on backtrack — rewinding un-does shots
+  combo = 1;
+  render(); hud();
+  toast('Rewound to step ' + (i + 1) + '.', '');
+}
+
+function countPend(n){
+  if (n.t==='pend') return 1 + countPend(n.inner);
+  let c = 0;
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) c += countPend(n[k]);
+  return c;
+}
+
+function collectPends(n, acc=[]){
+  if (n.t==='pend') acc.push(n);
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) collectPend_into(n[k], acc);
+  return acc;
+}
+function collectPend_into(n, acc){ collectPends(n, acc); }
+
+function replacePend(n, id, repl){
+  if (n.t==='pend' && n.id===id) return repl;
+  const out = {...n};
+  for (const k of ['a','b','arg','base','exp']){
+    if (n[k]) out[k] = replacePend(n[k], id, repl);
+  }
+  return out;
+}
+
+function findPend(id){ return collectPends(tree).find(p => p.id===id); }
+
+/* ---------------- interaction ---------------- */
+$('expr').addEventListener('click', ev => {
+  const t = ev.target.closest('[data-pid]');
+  if (!t) return;
+  selId = parseInt(t.dataset.pid, 10);
+  render();
+});
+
+function toast(msg, cls){
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (cls||'');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> el.className = '', 2200);
+}
+
+function fire(rule){
+  const target = selId !== null ? findPend(selId) : null;
+  if (!target){
+    toast('Aim first: click a pending d/dx term.', 'bad');
+    return;
+  }
+  animateShot(rule, () => resolve(rule, target));
+}
+
+/* ---------------- deep arithmetic tidy (for the "Tidy up" rule) ---------------- */
+function tidyCount(n){
+  // counts arithmetic reductions available below (and at) this node
+  if (!n || typeof n !== 'object') return 0;
+  if (n.t==='pend') return tidyCount(n.inner);
+  let c = 0;
+  if (n.t==='mul'){
+    if (n.a.t==='num' && n.b.t==='num') c++;
+    else if (n.a.t==='num' && n.a.v===0) c++;
+    else if (n.b.t==='num' && n.b.v===0) c++;
+    else if (n.a.t==='num' && n.a.v===1) c++;
+    else if (n.b.t==='num' && n.b.v===1) c++;
+    else if (n.a.t==='num' && n.b.t==='mul' && n.b.a.t==='num') c++;
+  } else if (n.t==='add' || n.t==='sub'){
+    if (n.b.t==='num' && n.b.v===0) c++;
+  } else if (n.t==='pow'){
+    if (n.base.t==='var' && n.exp.t==='num' && n.exp.v===1) c++;
+    if (n.exp.t==='num' && n.exp.v===0 && (n.base.t==='var'||n.base.t==='num')) c++;
+  }
+  for (const k of ['a','b','arg','base','exp']) if (n[k]) c += tidyCount(n[k]);
+  return c;
+}
+
+function resolve(rule, target){
+  const e = target.inner;
+  if (rule.id === 'tidy'){
+    // Tidy up: run full arithmetic simplification inside the aimed pending term
+    const tidied = simp(JSON.parse(JSON.stringify(e)));
+    const nBefore = tidyCount(e);
+    if (latex(tidied, null) === latex(e, null) || nBefore === 0){
+      misses++; combo = 1;
+      $('stage').classList.remove('shake'); void $('stage').offsetWidth;
+      $('stage').classList.add('shake');
+      hud();
+      toast('Nothing to tidy in this term.', 'bad');
+      return;
+    }
+    tree = simp(replacePend(tree, target.id, P(tidied)));
+    selId = null;
+    history.push({tex: latex(tree, null), ruleName: rule.name,
+                  tree: JSON.parse(JSON.stringify(tree))});
+    score += 25;   // tidying is helpful but not a differentiation step
+    $('stage').classList.remove('pop'); void $('stage').offsetWidth;
+    $('stage').classList.add('pop');
+    render(); hud();
+    if (countPend(tree) === 0) levelCleared();
+    else toast('Tidied: ' + nBefore + ' simplification' + (nBefore>1?'s':'') + ' applied.', 'good');
+    return;
+  }
+  if (rule.match(e)){
+    const repl = simp(rule.apply(e));
+    tree = simp(replacePend(tree, target.id, repl));
+    selId = null;
+    history.push({tex: latex(tree, null), ruleName: rule.name,
+                  tree: JSON.parse(JSON.stringify(tree))});
+    score += 100 + 25*(combo-1);
+    combo++;
+    $('stage').classList.remove('pop'); void $('stage').offsetWidth;
+    $('stage').classList.add('pop');
+    render(); hud();
+    if (countPend(tree) === 0) levelCleared();
+    else toast('Hit! ' + rule.name + ' applied.', 'good');
+  } else {
+    misses++; combo = 1;
+    $('stage').classList.remove('shake'); void $('stage').offsetWidth;
+    $('stage').classList.add('shake');
+    hud();
+    hintFor(e, rule);
+  }
+}
+
+function hintFor(e, rule){
+  const msgs = {
+    num:  'A bare number — its derivative is 0.',
+    var:  "Just x — the power rule with n = 1 finishes it.",
+    add:  'A sum: differentiate each term separately.',
+    sub:  'A difference: differentiate each term separately.',
+    mul:  'A product of factors — which rule handles u · v?',
+    div:  'A quotient u/v — there is a rule made for exactly this.',
+    pow:  e.base.t==='var'
+      ? "x to a constant power — one rule covers that."
+      : "A power of a non-x expression — the outer/inner structure needs one specific rule.",
+    fn:   e.arg.t==='var'
+      ? `${e.name}(x) is a basic derivative — no chain needed when the inner function is just x.`
+      : `${e.name} of something that isn't x — the outer/inner structure needs one specific rule.`
+  };
+  toast(`No effect — the ${rule.name} doesn't apply here. ` + (msgs[e.t]||''), 'bad');
+}
+
+/* shot animation: a dot flies from the fired card to the selected target */
+function animateShot(rule, done){
+  const cardEl = document.querySelector(`.card[data-rule="${rule.id}"]`);
+  const tgtEl = document.querySelector(`[data-pid="${selId}"]`);
+  if (!cardEl || !tgtEl || reduceMotion){ done(); return; }
+  const a = cardEl.getBoundingClientRect(), b = tgtEl.getBoundingClientRect();
+  const dot = document.createElement('div');
+  dot.className = 'shot';
+  dot.style.left = (a.left + a.width/2) + 'px';
+  dot.style.top  = (a.top) + 'px';
+  document.body.appendChild(dot);
+  requestAnimationFrame(()=>{
+    dot.style.transition = 'all .28s cubic-bezier(.4,0,.6,1)';
+    dot.style.left = (b.left + b.width/2) + 'px';
+    dot.style.top  = (b.top + b.height/2) + 'px';
+    dot.style.opacity = '.4';
+  });
+  setTimeout(()=>{ dot.remove(); done(); }, 300);
+}
+
+function hud(){
+  $('score').textContent = score;
+  $('combo').textContent = '×' + combo;
+  $('misses').textContent = misses;
+}
+
+/* ---------------- levels ---------------- */
+function loadLevel(i){
+  level = i; selId = null;
+  pendCounter = 1;
+  const L = LEVELS[i];
+  const taskFn = L.tasks ? rnd(L.tasks) : L.expr;
+  tree = taskFn();
+  history = [{tex: latex(tree, null), ruleName: null,
+              tree: JSON.parse(JSON.stringify(tree))}];
+  $('objective').innerHTML = `Level ${i+1} — <b>${L.name}</b> · ${L.goal}`;
+  buildTray();
+  document.querySelectorAll('.lvlbtn').forEach((b,j)=>{
+    b.classList.toggle('active', j===i);
+    b.classList.toggle('done', cleared.has(j));
+  });
+  $('doneOverlay').classList.remove('show');
+  render(); hud();
+}
+
+function levelCleared(){
+  cleared.add(level);
+  document.querySelectorAll('.lvlbtn')[level].classList.add('done');
+  $('doneTitle').textContent = 'Level cleared';
+  katexRender($('doneExpr'), latex(tree, null));
+  $('doneStats').textContent =
+    `Score ${score} · misses this session: ${misses} · every pending derivative resolved.`;
+  const last = level === LEVELS.length-1;
+  $('nextBtn').textContent = last ? 'Finish' : 'Next level →';
+  $('doneOverlay').classList.add('show');
+}
+
+$('nextBtn').addEventListener('click', ()=>{
+  $('doneOverlay').classList.remove('show');
+  if (level === LEVELS.length-1){
+    $('winStats').textContent = `Final score ${score}, ${misses} missed shots across all levels.`;
+    $('winOverlay').classList.add('show');
+    return;
+  }
+  loadLevel(level+1);
+});
+$('replayBtn').addEventListener('click', ()=> loadLevel(level));
+
+/* ---------------- solution walkthrough (after clearing a level) ---------------- */
+let reviewIdx = 0;
+function showReview(){
+  reviewIdx = history.length - 1;
+  $('doneOverlay').classList.remove('show');
+  $('reviewOverlay').classList.add('show');
+  renderReview();
+}
+function renderReview(){
+  // Full sheet: every step on its own line, = aligned via fixed sign column,
+  // rule comment on the right of each line.
+  const sheet = $('reviewSheet');
+  sheet.innerHTML = '';
+  history.forEach((h, i) => {
+    const line = document.createElement('div');
+    line.className = 'review-line' +
+      (i === 0 ? ' start' : '') +
+      (i === history.length - 1 ? ' final' : '');
+    const sign = document.createElement('div');
+    sign.className = 'rl-sign';
+    sign.textContent = i === 0 ? '' : '=';
+    line.appendChild(sign);
+    const math = document.createElement('span');
+    math.className = 'rl-math';
+    katexRender(math, h.tex);
+    line.appendChild(math);
+    const note = document.createElement('div');
+    note.className = 'rl-note';
+    if (i === 0){
+      note.textContent = 'Original task';
+    } else if (i === history.length - 1){
+      note.textContent = '⟵ ' + h.ruleName + ' — final result';
+    } else {
+      note.textContent = '⟵ ' + h.ruleName;
+    }
+    line.appendChild(note);
+    sheet.appendChild(line);
+  });
+}
+$('reviewBtn').addEventListener('click', showReview);
+$('rvClose').addEventListener('click', ()=>{
+  $('reviewOverlay').classList.remove('show');
+  $('doneOverlay').classList.add('show');
+});
+$('tidyBtn').addEventListener('click', ()=>{
+  // Full arithmetic tidy of the finished expression, shown on the overlay
+  const before = latex(tree, null);
+  tree = simp(JSON.parse(JSON.stringify(tree)));
+  const after = latex(tree, null);
+  katexRender($('doneExpr'), after);
+  if (before !== after){
+    $('doneStats').textContent = 'Tidied: arithmetic simplified (1+0 → 1, ·1 removed, …).';
+    $('tidyBtn').style.display = 'none';
+  }
+});
+
+/* ---------------- build UI ---------------- */
+const levelsNav = $('levels');
+LEVELS.forEach((L,i)=>{
+  const b = document.createElement('button');
+  b.className = 'lvlbtn'; b.textContent = (i+1) + '·' + L.name;
+  b.addEventListener('click', ()=> loadLevel(i));
+  levelsNav.appendChild(b);
+});
+
+const tray = $('tray');
+/* rule cards are rebuilt per level: a level lists the rules it introduces/needs */
+let activeRules = [];
+function buildTray(){
+  tray.innerHTML = '';
+  const L = LEVELS[level];
+  const ids = L.rules || RULES.map(r => r.id);
+  activeRules = ids.map(id => RULES.find(r => r.id === id)).filter(Boolean);
+  activeRules.forEach((r, i)=>{
+    r.key = String(i + 1);          // visible cards are always keys 1..n
+    const c = document.createElement('button');
+    c.className = 'card'; c.dataset.rule = r.id;
+    c.innerHTML = `<span class="name">${r.name}</span><span class="key">${r.key}</span><div class="formula"></div>`;
+    tray.appendChild(c);
+    katexRender(c.querySelector('.formula'), r.tex);
+    c.addEventListener('click', ()=> fire(r));
+  });
+  // Tidy up rides along on every level, on a fixed non-numeric key
+  const tidy = RULES.find(r => r.id === 'tidy');
+  tidy.key = 'q';
+  const c = document.createElement('button');
+  c.className = 'card'; c.dataset.rule = tidy.id;
+  c.innerHTML = `<span class="name">${tidy.name}</span><span class="key">${tidy.key}</span><div class="formula"></div>`;
+  tray.appendChild(c);
+  katexRender(c.querySelector('.formula'), tidy.tex);
+  c.addEventListener('click', ()=> fire(tidy));
+  activeRules.push(tidy);
+}
+
+document.addEventListener('keydown', ev=>{
+  const r = activeRules.find(r => r.key === ev.key);
+  if (r) fire(r);
+});
+
+loadLevel(0);
+</script>
+<footer>Created by Henrik Skov Midtiby · Associate Professor, University of Southern Denmark · <a href="https://portal.findresearcher.sdu.dk/da/persons/henrik-skov-midtiby/">research profile</a></footer>
+</body>
+</html>
