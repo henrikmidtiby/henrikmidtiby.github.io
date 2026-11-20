@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Komplekse potenser · z, z², z³, z⁴ …</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .cp-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .cp-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .cp-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .cp-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .cp-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.cp-grid{grid-template-columns:1fr}}
+
+  .cp-stage{position:relative;height:min(760px,80vh);min-height:500px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .cp-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .cp-stage canvas.grab{cursor:grab}
+  .cp-stage canvas.grabbing{cursor:grabbing}
+  .cp-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .cp-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:78px}
+  .cp-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .cp-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .cp-legend{position:absolute;bottom:12px;left:12px;font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap}
+  .cp-legend b{font-weight:800;margin-right:5px;display:inline-block}
+  .cp-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .cp-panel{display:flex;flex-direction:column;gap:11px}
+  .cp-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .cp-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .cp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .cp-row:first-child{margin-top:0}
+  .cp-row label{font-size:13.5px;color:var(--ink)}
+  .cp-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:70px;text-align:right}
+  .cp-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .cp-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .cp-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .cp-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .cp-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .cp-switch:checked{background:var(--ink)}
+  .cp-switch:checked:after{transform:translateX(18px)}
+
+  .cp-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .cp-btn:hover{background:#f2f2f2}
+  .cp-del{border:1px solid var(--line);background:#fff;border-radius:6px;width:22px;height:20px;
+    line-height:1;font-size:11px;cursor:pointer;color:var(--muted)}
+  .cp-del:hover{background:#f2f2f2;color:var(--ink)}
+
+  table.cp-pow{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+  table.cp-pow th{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);
+    text-align:right;padding:3px 4px;border-bottom:1px solid var(--line);font-weight:700}
+  table.cp-pow th:first-child{text-align:left}
+  table.cp-pow td{padding:5px 4px;text-align:right;border-bottom:1px solid var(--line2);color:var(--ink2)}
+  table.cp-pow td:first-child{text-align:left;font-weight:800;color:var(--ink)}
+  table.cp-pow tr.hl td{background:#f5f5f5}
+
+  .cp-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .cp-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .cp-footeq .row{margin:3px 0}
+  .cp-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="cp-root" id="cp-root">
+  <div class="cp-head">
+    <div>
+      <div class="cp-title">Potenser af komplekse tal · z, z², z³, z⁴ …</div>
+      <div class="cp-sub">Træk <b>z</b> rundt på planet med musen — potenserne <code>zⁿ = rⁿ·e^{inθ}</code> følger med.
+        Den stiplede spiral er kurven <code>z^t</code> for <code>t ∈ [1, n]</code>, der forbinder punkterne.</div>
+    </div>
+  </div>
+
+  <div class="cp-grid">
+    <div class="cp-stage">
+      <canvas id="cp-canvas"></canvas>
+      <div class="cp-hud">
+        <div class="cp-chip"><span class="k">z = a+bi</span><span class="v" id="cp-hz">–</span></div>
+        <div class="cp-chip"><span class="k">|z| = r</span><span class="v" id="cp-hr">–</span></div>
+        <div class="cp-chip"><span class="k">arg z = θ</span><span class="v" id="cp-ht">–</span></div>
+      </div>
+      <div class="cp-legend">
+        <span><b>●</b>z</span>
+        <span><b>●</b>z²</span>
+        <span><b>●</b>z³</span>
+        <span><b>●</b>z⁴ …</span>
+        <span><b>┄</b>kurve z^t</span>
+      </div>
+      <div class="cp-hint">Træk i z · træk i tom felt = panorér · dobbeltklik = zoom · hjul = zoom</div>
+    </div>
+
+    <div class="cp-panel">
+      <div class="cp-card">
+        <h3>Starttal z (træk også med musen)</h3>
+        <div class="cp-row"><label>|z| = r</label><span class="cp-val" id="cp-rv">1.10</span></div>
+        <input class="cp-range" id="cp-rs" type="range" min="0" max="2.5" step="0.01" value="1.1" />
+        <div class="cp-row" style="margin-top:10px"><label>arg z = θ</label><span class="cp-val" id="cp-thv">40.0°</span></div>
+        <input class="cp-range" id="cp-ths" type="range" min="-180" max="180" step="0.5" value="40" />
+        <div class="cp-micro">z = r·cos θ + i·r·sin θ = r·e^{iθ}</div>
+      </div>
+
+      <div class="cp-card">
+        <h3>Potenser</h3>
+        <div class="cp-row"><label>Højeste potens n</label><span class="cp-val" id="cp-nv">4</span></div>
+        <input class="cp-range" id="cp-ns" type="range" min="2" max="8" step="1" value="4" />
+        <table class="cp-pow" id="cp-table">
+          <thead><tr><th>n</th><th>zⁿ = a+bi</th><th>|z|ⁿ</th><th>n·θ</th></tr></thead>
+          <tbody id="cp-tbody"></tbody>
+        </table>
+        <div class="cp-micro">|zⁿ| = |z|ⁿ og arg zⁿ = n·arg z (De Moivre).</div>
+      </div>
+
+      <div class="cp-card">
+        <h3>Frosne tal</h3>
+        <button class="cp-btn" id="cp-freeze">❄ Frys z (tast S)</button>
+        <div class="cp-micro" style="margin-top:6px">Frys et tal, træk derefter et <b>nyt</b> z rundt — hvor spiralens
+          potenser rammer det frosne tal, findes fx de <code>n</code> rødder i ligningen <code>zⁿ = w</code>.</div>
+        <table class="cp-pow" id="cp-frozen-table" style="margin-top:8px">
+          <thead><tr><th>t</th><th>værdi</th><th></th></tr></thead>
+          <tbody id="cp-frozen-tbody"><tr><td colspan="3" style="color:var(--faint);text-align:left">ingen frosne tal</td></tr></tbody>
+        </table>
+        <div class="cp-toggle" style="margin-top:8px"><label>Rodcirkel |z| = |w|^(1/n)</label><input type="checkbox" class="cp-switch" id="cp-croot" checked></div>
+        <div class="cp-row" style="margin-top:2px"><span class="cp-micro">Cirklen hvor alle n rødder af w ligger (sidst frosne tal).</span></div>
+        <button class="cp-btn" id="cp-highlight">⌖ Fremhæv frosne (tast H)</button>
+        <div class="cp-toggle" style="margin-top:8px"><label>Spiraler på frosne</label><input type="checkbox" class="cp-switch" id="cp-cfs" checked></div>
+        <button class="cp-btn" id="cp-unfreezeall">Ryd alle frosne tal</button>
+      </div>
+
+      <div class="cp-card">
+        <h3>Visning</h3>
+        <div class="cp-row"><label>Zoom</label><span class="cp-val" id="cp-zv">1.00×</span></div>
+        <input class="cp-range" id="cp-zs" type="range" min="0.15" max="12" step="0.05" value="1" />
+        <button class="cp-btn" id="cp-fit">⌖ Tilpas visning (vis alle punkter)</button>
+
+        <div style="border-top:1px solid var(--line);margin:12px -13px 6px"></div>
+        <div class="cp-toggle"><label>Enhedscirkel |z| = 1</label><input type="checkbox" class="cp-switch" id="cp-cu" checked></div>
+        <div class="cp-toggle"><label>Kurve z^t (spiral)</label><input type="checkbox" class="cp-switch" id="cp-cc" checked></div>
+        <div class="cp-toggle"><label>Radiallinjer fra origo</label><input type="checkbox" class="cp-switch" id="cp-cr" checked></div>
+        <div class="cp-toggle"><label>Radiuscirkler r, r², r³ …</label><input type="checkbox" class="cp-switch" id="cp-crc" checked></div>
+        <div class="cp-toggle"><label>Vinkelbuer</label><input type="checkbox" class="cp-switch" id="cp-ca" checked></div>
+        <div class="cp-toggle"><label>Gitter & akser</label><input type="checkbox" class="cp-switch" id="cp-cg" checked></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('cp-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK   = '#111111';
+  const INK2  = '#3a3a3a';
+  const MUTED = '#555555';
+  const FAINT = '#9a9a9a';
+  const GRID  = '#ececec';
+  const AXIS  = '#c2c2c2';
+  const RING  = '#dcdcdc';   // radius circles r^n
+  const UNIT  = '#8a8a8a';   // unit circle
+  const CURVE = '#666666';   // spiral z^t
+
+  // ---- state ----
+  const state = {
+    r: 1.1, thetaDeg: 40,     // z = r e^{i thetaDeg}
+    n: 4,
+    frozen: [],               // [{re,im,label,powers}] — frozen numbers w1, w2, …
+    hoverFrozen: null,        // index of hovered frozen track (mouse-over emphasis)
+    highlight: false,         // dim z-track, emphasize frozen tracks
+    showFrozenSpirals: true,
+    showUnit:true, showCurve:true, showRays:true,
+    showRings:true, showArcs:true, showGrid:true, showRootCircle:true
+  };
+  const view = { cx:0, cy:0, zoom:1 };
+
+  const D2R = Math.PI/180, R2D = 180/Math.PI;
+  function zRe(){ return state.r*Math.cos(state.thetaDeg*D2R); }
+  function zIm(){ return state.r*Math.sin(state.thetaDeg*D2R); }
+  // complex power via De Moivre (polar form) — single source of truth
+  function cpow(n){
+    const rr = Math.pow(state.r, n), th = n*state.thetaDeg*D2R;
+    return { re: rr*Math.cos(th), im: rr*Math.sin(th) };
+  }
+  // repeated multiplication (independent path, for selfTest cross-check)
+  function cpowMul(n){
+    let re=1, im=0, bre=zRe(), bim=zIm();
+    for(let k=0;k<n;k++){ const t = re*bre - im*bim; im = re*bim + im*bre; re = t; }
+    return { re, im };
+  }
+  // spiral point z^t for real t
+  function curvePoint(t){
+    const rr = Math.pow(state.r, t), th = t*state.thetaDeg*D2R;
+    return { re: rr*Math.cos(th), im: rr*Math.sin(th) };
+  }
+  function canon180(rad){ let d=(rad*R2D)%360; if(d>180)d-=360; if(d<-180)d+=360; return d; }
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function pill(txt,cx,cy,fs,bold){
+    fs = fs || 11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+  function supLabel(n){ return n===1?'z':('z'+supExp(n)); }
+  function supExp(n){ return String(n).replace(/\d/g,d=>'⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]); }
+
+  function viewScale(W,H){
+    const maxR = Math.pow(Math.max(state.r,1), state.n);
+    const fit  = Math.max(2.4, state.n>1 ? maxR*1.12 : 2.4);
+    return (Math.min(W,H)/2 - 40)/fit * view.zoom;
+  }
+
+  // ---- render (synchronous) ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    const scale = viewScale(W,H);
+    const sx = wx => W/2 + (wx - view.cx)*scale;
+    const sy = wy => H/2 - (wy - view.cy)*scale;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const halfW = Math.min(W,H)/2, half = halfW/scale;
+    const uMin = view.cx - half, uMax = view.cx + half;
+    const vMin = view.cy - half, vMax = view.cy + half;
+
+    // grid + axes + tick labels
+    if(state.showGrid){
+      // adaptive step: ~55px spacing
+      const raw = 55/scale, p = Math.pow(10, Math.floor(Math.log10(raw)));
+      const m = raw/p;
+      const step = (m<1.5?1:m<3.5?2:m<7.5?5:10)*p;
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=Math.floor(uMin/step)*step; u<=uMax; u+=step){
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(vMin)); ctx.lineTo(sx(u),sy(vMax)); ctx.stroke();
+      }
+      for(let v=Math.floor(vMin/step)*step; v<=vMax; v+=step){
+        ctx.beginPath(); ctx.moveTo(sx(uMin),sy(v)); ctx.lineTo(sx(uMax),sy(v)); ctx.stroke();
+      }
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(sx(uMin),sy(0)); ctx.lineTo(sx(uMax),sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(vMin)); ctx.lineTo(sx(0),sy(vMax)); ctx.stroke();
+      const dec = step<1 ? Math.min(2,-Math.floor(Math.log10(step))) : 0;
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      for(let u=Math.ceil(uMin/step)*step; u<=uMax; u+=step){
+        if(Math.abs(u)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(0)-5); ctx.lineTo(sx(u),sy(0)+5); ctx.stroke();
+        ctx.fillText(u.toFixed(dec), sx(u), sy(0)+8);
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      for(let v=Math.ceil(vMin/step)*step; v<=vMax; v+=step){
+        if(Math.abs(v)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(0)-5,sy(v)); ctx.lineTo(sx(0)+5,sy(v)); ctx.stroke();
+        ctx.fillText(v.toFixed(dec), sx(0)-9, sy(v));
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillStyle=MUTED; ctx.font='12px ui-sans-serif,system-ui,sans-serif';
+      ctx.fillText('Re', sx(uMax)-4, sy(0)-14);
+      ctx.fillText('Im', sx(0)+8, sy(vMax)+12);
+    }
+
+    const origin = [sx(0), sy(0)];
+
+    // frozen numbers: gray ring-dots with labels w1, w2 …, plus their frozen power track
+    // highlight mode: frozen tracks emphasized (bigger dots, darker strokes), z-track dimmed
+    // hover (mouse-over on a frozen dot): that track gets full ink emphasis, others stay faint
+    const HI = state.highlight;
+    const hv = state.hoverFrozen;
+    const anyHover = hv !== null;
+    state.frozen.forEach((f, fi)=>{
+      const hov = anyHover && hv === fi;
+      // when one track is hovered, push the OTHER frozen tracks further back
+      const dim = anyHover && !hov;
+      const fSpiral    = hov ? INK      : (HI ? '#3a3a3a' : FAINT);
+      const fDotStroke = hov ? INK      : (HI ? '#111111' : FAINT);
+      const fDotFill2  = hov ? INK      : (HI ? '#3a3a3a' : FAINT);
+      const fDotR      = hov ? 5.5      : (HI ? 5 : 3.4);
+      const fAlpha     = dim ? 0.35 : 1;
+      // frozen spiral w^t (behind the frozen power dots)
+      if(state.showFrozenSpirals && Math.hypot(f.re,f.im)>1e-6 && f.powers.length){
+        ctx.setLineDash(hov ? [3,4] : [2,5]);
+        ctx.lineWidth = hov ? 2.6 : (HI ? 2 : 1.3);
+        ctx.strokeStyle = fSpiral;
+        ctx.globalAlpha = fAlpha;
+        ctx.beginPath();
+        const NP = 180;
+        const wr = Math.hypot(f.re,f.im), wth = Math.atan2(f.im,f.re);
+        for(let i=0;i<=NP;i++){
+          const t = 1 + (state.n-1)*i/NP;
+          const rr = Math.pow(wr,t), th = t*wth;
+          const X = sx(rr*Math.cos(th)), Y = sy(rr*Math.sin(th));
+          if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      // frozen powers w²..wⁿ: small gray dots (drawn before w itself so w sits on top)
+      (f.powers||[]).forEach((p, pi)=>{
+        const X = sx(p.re), Y = sy(p.im);
+        ctx.globalAlpha = fAlpha;
+        circle(X,Y,fDotR,'#fff',fDotStroke,hov?2.6:(HI?2.2:1.6));
+        circle(X,Y,hov?2.4:(HI?2.2:1.4),fDotFill2);
+        if(HI || hov){
+          const dl2 = Math.hypot(p.re,p.im);
+          pill(f.label+supExp(pi+2),
+               X + (dl2>1e-9 ? (p.re/dl2)*17 : 0),
+               Y - (dl2>1e-9 ? (p.im/dl2)*17 : -17), hov?11:10, true);
+        }
+      });
+      const X = sx(f.re), Y = sy(f.im);
+      circle(X,Y,hov?8.5:(HI?8:6.5),'#fff',fDotStroke,hov?3.2:(HI?3:2));
+      circle(X,Y,hov?3:(HI?2.8:2.4),fDotFill2);
+      const dl = Math.hypot(f.re,f.im);
+      let lx=X, ly=Y;
+      if(dl>1e-9){ lx = X + (f.re/dl)*19; ly = Y - (f.im/dl)*19; } else { ly = Y - 19; }
+      pill(f.label, lx, ly, hov?13:(HI?13:11.5), true);
+      ctx.globalAlpha = 1;
+    });
+
+    // root circle |z| = |w|^(1/n) for the last frozen number
+    if(state.showRootCircle && state.frozen.length && state.n>0){
+      const w = state.frozen[state.frozen.length-1];
+      const rootR = Math.pow(Math.hypot(w.re,w.im), 1/state.n);
+      if(rootR>1e-9 && rootR<1e6){
+        ctx.setLineDash([3,5]); ctx.lineWidth=1.6; ctx.strokeStyle=MUTED;
+        ctx.beginPath(); ctx.arc(origin[0],origin[1],rootR*scale,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        pill('|z| = |w|^(1/'+state.n+') = '+rootR.toFixed(2), origin[0], origin[1]-rootR*scale-14, 10.5);
+      }
+    }
+
+    // radius circles r^1..r^n (|z^n| = r^n) — belong to the z-track: dim in highlight mode
+    if(state.showRings && state.r>1e-6 && !state.highlight){
+      ctx.lineWidth=1; ctx.strokeStyle=RING;
+      for(let k=2;k<=state.n;k++){
+        ctx.beginPath(); ctx.arc(origin[0],origin[1],state.r*k && Math.pow(state.r,k)*scale,0,Math.PI*2); ctx.stroke();
+      }
+    }
+
+    // unit circle
+    if(state.showUnit){
+      ctx.setLineDash([7,6]); ctx.lineWidth=1.4; ctx.strokeStyle=UNIT;
+      ctx.beginPath(); ctx.arc(origin[0],origin[1],scale,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      pill('|z| = 1', origin[0]-scale*0.72, origin[1]+scale*0.72, 10.5);
+    }
+
+    const z  = { re: zRe(), im: zIm() };
+    const zz = [];            // powers 1..n
+    for(let k=1;k<=state.n;k++) zz.push(cpow(k));
+
+    // spiral curve z^t, t in [1,n] — dimmed when frozen tracks are highlighted
+    if(state.showCurve && state.r>1e-6 && !state.highlight){
+      ctx.setLineDash([4,4]); ctx.lineWidth=1.8; ctx.strokeStyle=CURVE;
+      ctx.beginPath();
+      const NPTS = 260;
+      for(let i=0;i<=NPTS;i++){
+        const p = curvePoint(1 + (state.n-1)*i/NPTS);
+        const X = sx(p.re), Y = sy(p.im);
+        if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // angle arcs at origin: θ (to z) and n·θ (to z^n), drawn inside-out — z-track only
+    if(state.showArcs && state.r>1e-6 && !state.highlight){
+      const th = state.thetaDeg*D2R;
+      // arc θ from positive Re axis to z
+      ctx.lineWidth=2; ctx.strokeStyle=INK2;
+      ctx.beginPath(); ctx.arc(origin[0],origin[1],30,0,-th,th>0); ctx.stroke();
+      const rPx = Math.min(scale*0.5, Math.max(46, state.r*scale*0.35));
+      pill('θ', origin[0]+Math.cos(th/2)*rPx, origin[1]-Math.sin(th/2)*rPx, 11.5, true);
+      // arc n·θ (mod 2π) from Re axis to z^n
+      const thn = state.n*th;
+      const m = ((thn % (2*Math.PI))+2*Math.PI)%(2*Math.PI);
+      const drawM = m>1e-4 && m<2*Math.PI-1e-4;
+      if(drawM){
+        ctx.lineWidth=1.6; ctx.strokeStyle=FAINT;
+        ctx.beginPath(); ctx.arc(origin[0],origin[1],44,0,-m,m>0); ctx.stroke();
+        pill('n·θ', origin[0]+Math.cos(m/2)*62, origin[1]-Math.sin(m/2)*62, 10.5, true);
+      }
+    }
+
+    // radial lines origin -> z^k — z-track only
+    if(state.showRays && state.r>1e-6 && !state.highlight){
+      for(let k=1;k<=state.n;k++){
+        const p = zz[k-1];
+        const X = sx(p.re), Y = sy(p.im);
+        if(Math.hypot(X-origin[0],Y-origin[1])>2){
+          ctx.setLineDash([2,4]); ctx.lineWidth=1.2; ctx.strokeStyle=FAINT;
+          ctx.beginPath(); ctx.moveTo(origin[0],origin[1]); ctx.lineTo(X,Y); ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]);
+    }
+
+    // points z^2..z^n (small filled dots with labels) — draw before z so z is on top
+    // in highlight mode the whole z-track dims to light gray so frozen tracks stand out
+    const zStroke = state.highlight ? '#b5b5b5' : INK;
+    const zFill   = state.highlight ? '#b5b5b5' : INK;
+    for(let k=2;k<=state.n;k++){
+      const p = zz[k-1];
+      const X = sx(p.re), Y = sy(p.im);
+      circle(X,Y,5.5,'#fff',zStroke,2);
+      circle(X,Y,2.2,zFill);
+      if(state.highlight){
+        const dl = Math.hypot(p.re,p.im);
+        pill(supLabel(k), dl>1e-9 ? X+(p.re/dl)*17 : X, dl>1e-9 ? Y-(p.im/dl)*17 : Y-17, 10.5, true);
+      } else {
+      // label anchored radially outward, past the point
+      const dl = Math.hypot(p.re,p.im);
+      let lx=X, ly=Y;
+      if(dl>1e-9){
+        lx = X + (p.re/dl)*17; ly = Y - (p.im/dl)*17;
+      } else { ly = Y - 17; }
+      pill(supLabel(k), lx, ly, 12, true);
+      }
+    }
+
+    // z itself: white core + black ring + crosshair (draggable)
+    const zx = sx(z.re), zy = sy(z.im);
+    circle(zx,zy,state.highlight?6:8,'#fff',zStroke,state.highlight?1.8:3);
+    circle(zx,zy,state.highlight?2:2.8,zFill);
+    if(!state.highlight){
+      ctx.strokeStyle=INK; ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.moveTo(zx-13,zy); ctx.lineTo(zx+13,zy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(zx,zy-13); ctx.lineTo(zx,zy+13); ctx.stroke();
+      pill('z', zx + (state.r>1e-9 ? (z.re/state.r)*19 : 0),
+                zy - (state.r>1e-9 ? (z.im/state.r)*19 : -19), 13, true);
+    }
+
+    // origin
+    circle(origin[0],origin[1],4,'#fff',INK2,1.6);
+
+    updReadout(z, zz);
+  }
+
+  // ---- HUD + table ----
+  const E = id => document.getElementById(id);
+  function fmtC(re,im,dec){
+    dec = dec==null?3:dec;
+    if(Math.abs(im)<5e-4) return re.toFixed(dec);
+    return re.toFixed(dec)+(im<0?' − ':' + ')+Math.abs(im).toFixed(dec)+'i';
+  }
+  function updReadout(z, zz){
+    E('cp-hz').textContent = fmtC(z.re,z.im,2);
+    E('cp-hr').textContent = state.r.toFixed(3);
+    E('cp-ht').textContent = canon180(state.thetaDeg*D2R).toFixed(1)+'°';
+    E('cp-rs').value = state.r;  E('cp-rv').textContent = state.r.toFixed(2);
+    E('cp-ths').value = canon180(state.thetaDeg*D2R); E('cp-thv').textContent = canon180(state.thetaDeg*D2R).toFixed(1)+'°';
+    E('cp-ns').value = state.n;  E('cp-nv').textContent = state.n;
+
+    let html = '';
+    for(let k=1;k<=state.n;k++){
+      const p = zz[k-1];
+      const argTxt = state.r<1e-9 ? '—' : (k*canon180(state.thetaDeg*D2R)).toFixed(1)+'°';
+      html += '<tr'+(k===state.n?' class="hl"':'')+'><td>'+supLabel(k)+'</td><td>'+fmtC(p.re,p.im,2)+'</td><td>'+
+              Math.pow(state.r,k).toFixed(2)+'</td><td>'+argTxt+'</td></tr>';
+    }
+    E('cp-tbody').innerHTML = html;
+  }
+
+  // ---- controls ----
+  function bind(rangeId, fn){
+    E(rangeId).addEventListener('input', ev=>{
+      fn(parseFloat(ev.target.value));
+      render();
+    });
+  }
+  bind('cp-rs',  v=>{ state.r = v; });
+  bind('cp-ths', v=>{ state.thetaDeg = v; });
+  bind('cp-ns',  v=>{ state.n = Math.round(v); });
+  bind('cp-zs',  v=>{ view.zoom = v; E('cp-zv').textContent = v.toFixed(2)+'×'; });
+  E('cp-cu').addEventListener('change',ev=>{ state.showUnit=ev.target.checked; render(); });
+  E('cp-cc').addEventListener('change',ev=>{ state.showCurve=ev.target.checked; render(); });
+  E('cp-cr').addEventListener('change',ev=>{ state.showRays=ev.target.checked; render(); });
+  E('cp-crc').addEventListener('change',ev=>{ state.showRings=ev.target.checked; render(); });
+  E('cp-ca').addEventListener('change',ev=>{ state.showArcs=ev.target.checked; render(); });
+  E('cp-cg').addEventListener('change',ev=>{ state.showGrid=ev.target.checked; render(); });
+  E('cp-croot').addEventListener('change',ev=>{ state.showRootCircle=ev.target.checked; render(); });
+  E('cp-cfs').addEventListener('change',ev=>{ state.showFrozenSpirals=ev.target.checked; render(); });
+  function toggleHighlight(){
+    if(!state.frozen.length){ state.highlight = false; render(); return; }
+    state.highlight = !state.highlight;
+    E('cp-highlight').textContent = state.highlight ? '⌖ Fremhæv z (tast H)' : '⌖ Fremhæv frosne (tast H)';
+    render();
+  }
+  E('cp-highlight').addEventListener('click', toggleHighlight);
+
+  function syncZoomChip(){
+    E('cp-zs').value = view.zoom;
+    E('cp-zv').textContent = view.zoom.toFixed(2)+'×';
+  }
+  function fitView(){
+    view.zoom = 1;   // base extent already adapts to r^n in render(); zoom 1 shows all points
+    view.cx = 0; view.cy = 0;
+    syncZoomChip();
+    render();
+  }
+  function resetView(){
+    view.zoom = 1; view.cx = 0; view.cy = 0;
+    syncZoomChip(); render();
+  }
+  E('cp-fit').addEventListener('click', fitView);
+
+  // ---- freeze ----
+  function updFrozenTable(){
+    const tb = E('cp-frozen-tbody');
+    if(!state.frozen.length){
+      tb.innerHTML = '<tr><td colspan="3" style="color:var(--faint);text-align:left">ingen frosne tal</td></tr>';
+      return;
+    }
+    tb.innerHTML = state.frozen.map((f,i)=>
+      '<tr><td>'+f.label+'</td><td>'+fmtC(f.re,f.im,2)+'</td>'+
+      '<td><button data-i="'+i+'" class="cp-del" title="Fjern">✕</button></td></tr>').join('');
+    tb.querySelectorAll('.cp-del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.frozen.splice(+btn.dataset.i,1);
+        state.frozen.forEach((f,j)=>{ f.label = 'w'+(j+1); });   // renumber w1, w2 …
+        if(state.hoverFrozen !== null){
+          if(state.hoverFrozen >= state.frozen.length) state.hoverFrozen = null;
+        }
+        updFrozenTable(); render();
+      });
+    });
+  }
+  function freezeZ(){
+    if(state.frozen.length >= 6) state.frozen.shift();           // keep the panel readable
+    const z = { re:zRe(), im:zIm() };
+    const f = { re:z.re, im:z.im, label:'w'+(state.frozen.length+1), powers:[] };
+    for(let k=2;k<=state.n;k++) f.powers.push(cpow(k));          // freeze the whole track z²..zⁿ
+    state.frozen.push(f);
+    updFrozenTable(); render();
+  }
+  function unfreezeAll(){
+    state.frozen = [];
+    state.hoverFrozen = null;
+    updFrozenTable(); render();
+  }
+  E('cp-freeze').addEventListener('click', freezeZ);
+  E('cp-unfreezeall').addEventListener('click', unfreezeAll);
+
+  // ---- pointer: drag z, pan otherwise ----
+  // NOTE: the world<->screen scale must be FROZEN at pointerdown. The base extent
+  // adapts to r^n, so if we re-derive the scale mid-drag we create a feedback loop:
+  // drag outward -> r grows -> extent grows -> same screen offset maps to a larger
+  // world step -> r grows again -> z runs away to infinity.
+  let mode = null;          // 'drag' | 'pan'
+  let panStart = null;
+  let dragScale = null;     // scale frozen at pointerdown
+  function screenToWorld(px,py){
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    return { x: (px - W/2)/dragScale + view.cx, y: -(py - H/2)/dragScale + view.cy };
+  }
+  function zScreenPos(){
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    const scale = viewScale(W,H);
+    return { x: W/2 + (zRe()-view.cx)*scale, y: H/2 - (zIm()-view.cy)*scale };
+  }
+  // ---- hover on frozen numbers: mouse-over a w-dot emphasizes its whole track ----
+  function hitFrozen(px,py){
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    const scale = viewScale(W,H);
+    for(let i=state.frozen.length-1;i>=0;i--){
+      const f = state.frozen[i];
+      const X = W/2 + (f.re-view.cx)*scale, Y = H/2 - (f.im-view.cy)*scale;
+      if(Math.hypot(px-X,py-Y) <= 16) return i;
+      // also accept hovering the frozen power dots
+      for(const p of (f.powers||[])){
+        const PX = W/2 + (p.re-view.cx)*scale, PY = H/2 - (p.im-view.cy)*scale;
+        if(Math.hypot(px-PX,py-PY) <= 11) return i;
+      }
+    }
+    return null;
+  }
+  const R_MAX = 2.5;        // matches the r slider range
+  canvas.addEventListener('pointerdown', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX-rect.left, py = ev.clientY-rect.top;
+    dragScale = viewScale(rect.width, rect.height);
+    const zs = zScreenPos();
+    if(Math.hypot(px-zs.x, py-zs.y) <= 22){
+      mode='drag';
+    } else {
+      mode='pan';
+      panStart = { px, py, cx: view.cx, cy: view.cy, scale: dragScale };
+    }
+    canvas.setPointerCapture(ev.pointerId);
+    canvas.classList.add('grabbing');
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX-rect.left, py = ev.clientY-rect.top;
+    if(mode==='drag'){
+      const w = screenToWorld(px,py);
+      const r = Math.min(R_MAX, Math.hypot(w.x,w.y));
+      state.r = r;
+      if(r>1e-6){
+        state.thetaDeg = Math.atan2(w.y,w.x)*R2D;   // keep continuous; display canonicalizes
+      }
+      render();
+    } else if(mode==='pan'){
+      view.cx = panStart.cx - (px-panStart.px)/panStart.scale;
+      view.cy = panStart.cy + (py-panStart.py)/panStart.scale;
+      render();
+    } else {
+      // hover detection on frozen tracks (no drag active)
+      const hit = hitFrozen(px,py);
+      const prev = state.hoverFrozen;
+      if(hit !== prev){ state.hoverFrozen = hit; render(); }
+      const zs = zScreenPos();
+      const near = Math.hypot(px-zs.x,py-zs.y)<=22;
+      canvas.classList.toggle('grab', near);
+      canvas.style.cursor = (near || hit!==null) ? 'pointer' : 'crosshair';
+    }
+  });
+  canvas.addEventListener('pointerup',   ()=>{ mode=null; canvas.classList.remove('grabbing'); });
+  canvas.addEventListener('pointercancel',()=>{ mode=null; canvas.classList.remove('grabbing'); canvas.style.cursor=''; });
+  canvas.addEventListener('pointerleave', ()=>{
+    if(state.hoverFrozen !== null){ state.hoverFrozen = null; render(); }
+    canvas.style.cursor='';
+  });
+  canvas.addEventListener('dblclick', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const w = screenToWorld(ev.clientX-rect.left, ev.clientY-rect.top);
+    view.zoom = Math.min(12, view.zoom*1.8);
+    view.cx = w.x; view.cy = w.y;
+    syncZoomChip(); render();
+  });
+  canvas.addEventListener('wheel', ev=>{
+    ev.preventDefault();
+    const f = ev.deltaY<0 ? 1.15 : 1/1.15;
+    view.zoom = Math.min(12, Math.max(0.15, view.zoom*f));
+    syncZoomChip(); render();
+  }, {passive:false});
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(ev.key==='0'||ev.key==='c') resetView();
+    if(ev.key==='f') fitView();
+    if(ev.key==='s'||ev.key==='S') freezeZ();
+    if(ev.key==='h'||ev.key==='H') toggleHighlight();
+    if(ev.key==='+'||ev.key==='='){ view.zoom=Math.min(12,view.zoom*1.3); syncZoomChip(); render(); }
+    if(ev.key==='-'){ view.zoom=Math.max(0.15,view.zoom/1.3); syncZoomChip(); render(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.czpow = {
+    state, view,
+    z(){ return { re:zRe(), im:zIm() }; },
+    powers(){ const a=[]; for(let k=1;k<=state.n;k++) a.push(cpow(k)); return a; },
+    cpow, cpowMul, curvePoint,
+    setZ(re,im){ const r=Math.hypot(re,im); state.r=r; if(r>1e-9) state.thetaDeg=Math.atan2(im,re)*R2D; render(); },
+    setPolar(r,deg){ state.r=Math.max(0,r); state.thetaDeg=deg; render(); },
+    setN(n){ state.n=Math.max(2,Math.min(8,Math.round(n))); render(); },
+    setView(cx,cy,zoom){ view.cx=cx; view.cy=cy; view.zoom=zoom; syncZoomChip(); render(); },
+    freeze(){ freezeZ(); return state.frozen.slice(); },
+    unfreezeAll(){ unfreezeAll(); },
+    frozen(){ return state.frozen.slice(); },
+    toggleHighlight(){ toggleHighlight(); },
+    fit: fitView,
+    resetView,
+    render,
+    selfTest(){
+      const s = state, z = { re:zRe(), im:zIm() };
+      let maxDiff = 0;
+      const rows = [];
+      for(let k=1;k<=s.n;k++){
+        const a = cpow(k), b = cpowMul(k);
+        const d = Math.hypot(a.re-b.re, a.im-b.im);
+        maxDiff = Math.max(maxDiff, d);
+        rows.push({ n:k, demoivre:a, mult:b, diff:+d.toFixed(9) });
+      }
+      // modulus / argument laws
+      const modOk = rows.every(row => Math.abs(Math.hypot(row.demoivre.re,row.demoivre.im) - Math.pow(s.r,row.n)) < 1e-9);
+      let argOk = true;
+      if(s.r>1e-9){
+        const th = s.thetaDeg*D2R;
+        for(let k=1;k<=s.n;k++){
+          const a = rows[k-1].demoivre;
+          const arg = Math.atan2(a.im,a.re);
+          let d = (k*th - arg) % (2*Math.PI);
+          if(d>Math.PI) d-=2*Math.PI; if(d<-Math.PI) d+=2*Math.PI;
+          if(Math.abs(d)>1e-9) argOk = false;
+        }
+      }
+      // curve endpoints
+      const c1 = curvePoint(1), cn = curvePoint(s.n);
+      const curveOk = Math.hypot(c1.re-z.re, c1.im-z.im) < 1e-9 &&
+                      Math.hypot(cn.re-rows[s.n-1].demoivre.re, cn.im-rows[s.n-1].demoivre.im) < 1e-9;
+      return {
+        z:{ re:+z.re.toFixed(6), im:+z.im.toFixed(6), r:+s.r.toFixed(6), thetaDeg:+canon180(s.thetaDeg*D2R).toFixed(4) },
+        n:s.n,
+        rows,
+        maxDiffDeMoivreVsMult:+maxDiff.toFixed(9),
+        modLawOk:modOk, argLawOk:argOk, curveEndpointsOk:!!curveOk
+      };
+    }
+  };
+  resetView();
+})();
+</script>
+</body>
+</html>

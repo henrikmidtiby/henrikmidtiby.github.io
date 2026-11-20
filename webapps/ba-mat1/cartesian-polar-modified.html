@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kartesisk ↔ polær form · z = a+bi = r·e^{iθ}</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .kf-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .kf-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .kf-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .kf-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .kf-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.kf-grid{grid-template-columns:1fr}}
+
+  .kf-stage{position:relative;height:min(720px,78vh);min-height:500px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .kf-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .kf-stage canvas.grab{cursor:grab}
+  .kf-stage canvas.grabbing{cursor:grabbing}
+  .kf-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .kf-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:86px}
+  .kf-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .kf-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .kf-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .kf-panel{display:flex;flex-direction:column;gap:11px}
+  .kf-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .kf-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .kf-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .kf-row:first-child{margin-top:0}
+  .kf-row label{font-size:13.5px;color:var(--ink)}
+  .kf-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:74px;text-align:right}
+  .kf-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .kf-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .kf-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .kf-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .kf-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .kf-switch:checked{background:var(--ink)}
+  .kf-switch:checked:after{transform:translateX(18px)}
+
+  .kf-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .kf-btn:hover{background:#f2f2f2}
+
+  .kf-eq{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+    padding:9px 6px;border:1px solid var(--line);border-radius:9px;background:#fafafa;margin:8px 0}
+  .kf-eq .lit{color:var(--ink)}
+  .kf-eq .par{color:#8a8a8a;font-weight:400;font-size:12px}
+
+  .kf-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .kf-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .kf-footeq .row{margin:3px 0}
+  .kf-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="kf-root" id="kf-root">
+  <div class="kf-head">
+    <div>
+      <div class="kf-title">Komplekse tal: kartesisk ↔ polær form</div>
+      <div class="kf-sub">Træk <b>z</b> rundt på planet (eller brug sliderne) og se det samme tal i de to
+        repræsentationer: <code>z = a+bi</code> (a og b som projektioner) og <code>z = r·e^{iθ}</code> (radius og vinkel).</div>
+    </div>
+  </div>
+
+  <div class="kf-grid">
+    <div class="kf-stage">
+      <canvas id="kf-canvas"></canvas>
+      <div class="kf-hud">
+        <div class="kf-chip"><span class="k">kartesisk</span><span class="v" id="kf-hc">–</span></div>
+        <div class="kf-chip"><span class="k">polær</span><span class="v" id="kf-hp">–</span></div>
+      </div>
+      <div class="kf-hint">Træk i z · træk i tom felt = panorér · dobbeltklik/hjul = zoom · snap til akser/tal</div>
+    </div>
+
+    <div class="kf-panel">
+      <div class="kf-card">
+        <h3>Kartesisk form</h3>
+        <div class="kf-row"><label>a = Re z</label><span class="kf-val" id="kf-av">1.20</span></div>
+        <input class="kf-range" id="kf-as" type="range" min="-3" max="3" step="0.05" value="1.2" />
+        <div class="kf-row" style="margin-top:10px"><label>b = Im z</label><span class="kf-val" id="kf-bv">0.90</span></div>
+        <input class="kf-range" id="kf-bs" type="range" min="-3" max="3" step="0.05" value="0.9" />
+      </div>
+
+      <div class="kf-card">
+        <h3>Polær form</h3>
+        <div class="kf-row"><label>r = |z|</label><span class="kf-val" id="kf-rv">1.50</span></div>
+        <input class="kf-range" id="kf-rs" type="range" min="0" max="3" step="0.01" value="1.5" />
+        <div class="kf-row" style="margin-top:10px"><label>θ = arg z</label><span class="kf-val" id="kf-thv">36.9°</span></div>
+        <input class="kf-range" id="kf-ths" type="range" min="-180" max="180" step="0.5" value="36.9" />
+        <div class="kf-micro">r = √(a²+b²),&nbsp; θ = atan2(b, a) — begge veje.</div>
+      </div>
+
+      <div class="kf-card">
+        <h3>Samme tal, to former</h3>
+        <div class="kf-eq" id="kf-eq-cart">z = 1.2 + 0.9i</div>
+        <div class="kf-eq" id="kf-eq-polar">z = 1.5·e^{i·36.9°}</div>
+        <button class="kf-btn" id="kf-same">⇄ Byt mellem formerne (tast T)</button>
+        <div class="kf-micro">Viser samme z, men flytter fokus (highlight) mellem (a, b) og (r, θ).</div>
+      </div>
+
+      <div class="kf-card">
+        <h3>Visning</h3>
+        <div class="kf-row"><label>Zoom</label><span class="kf-val" id="kf-zv">1.00×</span></div>
+        <input class="kf-range" id="kf-zs" type="range" min="0.3" max="12" step="0.05" value="1" />
+        <button class="kf-btn" id="kf-fit">⌖ Tilpas visning</button>
+
+        <div style="border-top:1px solid var(--line);margin:12px -13px 6px"></div>
+        <div class="kf-toggle"><label>Projektioner (a, b)</label><input type="checkbox" class="kf-switch" id="kf-cp" checked></div>
+        <div class="kf-toggle"><label>Rektangel (a × b)</label><input type="checkbox" class="kf-switch" id="kf-crect" checked></div>
+        <div class="kf-toggle"><label>Vinkelbue θ</label><input type="checkbox" class="kf-switch" id="kf-ca" checked></div>
+        <div class="kf-toggle"><label>Radiuscirkel |z| = r</label><input type="checkbox" class="kf-switch" id="kf-cr" checked></div>
+        <div class="kf-toggle"><label>Snap til 0,1 (Shift = frit)</label><input type="checkbox" class="kf-switch" id="kf-csnap" checked></div>
+        <div class="kf-toggle"><label>Gitter & akser</label><input type="checkbox" class="kf-switch" id="kf-cg" checked></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('kf-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK   = '#111111';
+  const INK2  = '#3a3a3a';
+  const MUTED = '#555555';
+  const FAINT = '#9a9a9a';
+  const GRID  = '#ececec';
+  const AXIS  = '#c2c2c2';
+  const PROJ  = '#6f6f6f';
+  const RING  = '#dcdcdc';
+
+  // ---- state ----
+  const state = {
+    a: 1.2, b: 0.9,           // z = a + bi
+    mode: 'cart',             // 'cart' | 'polar' — which form is highlighted
+    showProj:true, showRect:true, showArc:true,
+    showRing:true, snap:true, showGrid:true
+  };
+  const view = { cx:0, cy:0, zoom:1 };
+  const R_MAX = 3;
+
+  const D2R = Math.PI/180, R2D = 180/Math.PI;
+  function polar(){
+    const r = Math.hypot(state.a, state.b);
+    const th = r>1e-9 ? Math.atan2(state.b, state.a) : 0;
+    return { r, th };         // th in radians, canonical (-π, π]
+  }
+  function snapVal(v){
+    if(!state.snap) return v;
+    return Math.round(v*10)/10;     // snap to 0.1
+  }
+  function canon180(rad){ let d=(rad*R2D)%360; if(d>180)d-=360; if(d<-180)d+=360; return d; }
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function pill(txt,cx,cy,fs,bold){
+    fs = fs || 11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+
+  function viewScale(W,H){
+    return (Math.min(W,H)/2 - 45)/R_MAX * view.zoom;
+  }
+
+  // ---- render ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    const scale = viewScale(W,H);
+    const sx = wx => W/2 + (wx - view.cx)*scale;
+    const sy = wy => H/2 - (wy - view.cy)*scale;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const half = (Math.min(W,H)/2)/scale;
+    const uMin = view.cx - half, uMax = view.cx + half;
+    const vMin = view.cy - half, vMax = view.cy + half;
+
+    // grid + axes
+    if(state.showGrid){
+      const raw = 55/scale, p = Math.pow(10, Math.floor(Math.log10(raw)));
+      const m = raw/p;
+      const step = (m<1.5?1:m<3.5?2:m<7.5?5:10)*p;
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=Math.floor(uMin/step)*step; u<=uMax; u+=step){
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(vMin)); ctx.lineTo(sx(u),sy(vMax)); ctx.stroke();
+      }
+      for(let v=Math.floor(vMin/step)*step; v<=vMax; v+=step){
+        ctx.beginPath(); ctx.moveTo(sx(uMin),sy(v)); ctx.lineTo(sx(uMax),sy(v)); ctx.stroke();
+      }
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(sx(uMin),sy(0)); ctx.lineTo(sx(uMax),sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(vMin)); ctx.lineTo(sx(0),sy(vMax)); ctx.stroke();
+      const dec = step<1 ? Math.min(2,-Math.floor(Math.log10(step))) : 0;
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      for(let u=Math.ceil(uMin/step)*step; u<=uMax; u+=step){
+        if(Math.abs(u)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(0)-5); ctx.lineTo(sx(u),sy(0)+5); ctx.stroke();
+        ctx.fillText(u.toFixed(dec), sx(u), sy(0)+8);
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      for(let v=Math.ceil(vMin/step)*step; v<=vMax; v+=step){
+        if(Math.abs(v)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(0)-5,sy(v)); ctx.lineTo(sx(0)+5,sy(v)); ctx.stroke();
+        ctx.fillText(v.toFixed(dec), sx(0)-9, sy(v));
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillStyle=MUTED; ctx.font='12px ui-sans-serif,system-ui,sans-serif';
+      ctx.fillText('Re', sx(uMax)-4, sy(0)-14);
+      ctx.fillText('Im', sx(0)+8, sy(vMax)+12);
+    }
+
+    const origin = [sx(0), sy(0)];
+    const p = polar();
+    const zx = sx(state.a), zy = sy(state.b);
+    const CART = state.mode==='cart';
+    // per-mode emphasis: highlighted elements use full ink, others fade a bit
+    const emph = el => el ? 1 : 0.45;
+
+    // radius circle |z| = r (polar element)
+    if(state.showRing && p.r>1e-6){
+      ctx.globalAlpha = CART ? 0.45 : 1;
+      ctx.setLineDash([6,5]); ctx.lineWidth = CART?1.2:1.8; ctx.strokeStyle = CART?FAINT:INK2;
+      ctx.beginPath(); ctx.arc(origin[0],origin[1],p.r*scale,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      pill('r = '+p.r.toFixed(2), origin[0]-p.r*scale*0.72, origin[1]+p.r*scale*0.72, 10.5);
+      ctx.globalAlpha = 1;
+    }
+
+    // angle arc θ from positive Re axis (polar element)
+    if(state.showArc && p.r>1e-6){
+      const arcR = Math.min(p.r*scale*0.55, 52);
+      ctx.globalAlpha = CART ? 0.45 : 1;
+      ctx.lineWidth = CART?1.4:2.2; ctx.strokeStyle = CART?FAINT:INK2;
+      ctx.beginPath(); ctx.arc(origin[0],origin[1],arcR,0,-p.th,p.th>0); ctx.stroke();
+      const lR = arcR + 18;
+      pill('θ = '+canon180(p.th).toFixed(1)+'°', origin[0]+Math.cos(p.th/2)*lR, origin[1]-Math.sin(p.th/2)*lR, 11);
+      ctx.globalAlpha = 1;
+    }
+
+    // rectangle a × b (connects cartesian to polar: hypotenuse = r)
+    if(state.showRect && Math.abs(state.a)>1e-6 && Math.abs(state.b)>1e-6){
+      ctx.globalAlpha = CART ? 1 : 0.45;
+      ctx.lineWidth = CART?1.4:1;
+      ctx.strokeStyle = CART?PROJ:FAINT;
+      ctx.strokeRect(Math.min(zx,origin[0]), Math.min(zy,origin[1]), Math.abs(zx-origin[0]), Math.abs(zy-origin[1]));
+      ctx.globalAlpha = 1;
+    }
+
+    // projections (cartesian elements): dashed lines from z to both axes with value chips
+    if(state.showProj){
+      ctx.globalAlpha = CART ? 1 : 0.45;
+      ctx.setLineDash([5,5]); ctx.lineWidth = CART?1.5:1.1; ctx.strokeStyle = CART?PROJ:FAINT;
+      ctx.beginPath(); ctx.moveTo(zx,zy); ctx.lineTo(zx,sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(zx,zy); ctx.lineTo(sx(0),zy); ctx.stroke();
+      ctx.setLineDash([]);
+      // a-mark on Re axis
+      ctx.strokeStyle=INK2; ctx.lineWidth = CART?2:1.2;
+      ctx.beginPath(); ctx.moveTo(zx,sy(0)-6); ctx.lineTo(zx,sy(0)+6); ctx.stroke();
+      // b-mark on Im axis
+      ctx.beginPath(); ctx.moveTo(sx(0)-6,zy); ctx.lineTo(sx(0)+6,zy); ctx.stroke();
+      pill('a = '+state.a.toFixed(2), zx, sy(0)+18, CART?11:10);
+      pill('b = '+state.b.toFixed(2), sx(0)-18, zy, CART?11:10);
+      ctx.globalAlpha = 1;
+    }
+
+    // vector from origin to z (thicker in polar mode = "radius r", thinner in cart mode)
+    ctx.globalAlpha = CART ? 0.8 : 1;
+    line(origin,[zx,zy], CART?2.2:3.2, CART?PROJ:INK2);
+    ctx.globalAlpha = 1;
+
+    // right-angle marker at (a,0) between the projection and the vector
+    if(state.showRect && Math.abs(state.a)>1e-6 && Math.abs(state.b)>1e-6){
+      ctx.globalAlpha = CART ? 1 : 0.45;
+      const ms = Math.min(9, Math.abs(zy-sy(0))*0.5, Math.abs(zx-origin[0])*0.5);
+      const axp = zx, ayp = sy(0);
+      const dxs = (zx>origin[0]) ? -1 : 1;
+      const dys = (zy<sy(0)) ? 1 : -1;
+      ctx.strokeStyle=FAINT; ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(axp+dxs*ms, ayp); ctx.lineTo(axp+dxs*ms, ayp+dys*ms); ctx.lineTo(axp, ayp+dys*ms);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // z itself: crosshair marker (draggable)
+    circle(zx,zy,8,'#fff',INK,3);
+    circle(zx,zy,2.8,INK);
+    ctx.strokeStyle=INK; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(zx-13,zy); ctx.lineTo(zx+13,zy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(zx,zy-13); ctx.lineTo(zx,zy+13); ctx.stroke();
+    pill('z', zx+ (p.r>1e-9 ? (state.a/p.r)*19 : 0), zy - (p.r>1e-9 ? (state.b/p.r)*19 : -19), 13, true);
+
+    // origin
+    circle(origin[0],origin[1],4,'#fff',INK2,1.6);
+
+    updReadout(p);
+  }
+
+  // ---- HUD + equation cards ----
+  const E = id => document.getElementById(id);
+  function updReadout(p){
+    E('kf-hc').textContent = fmtC(state.a, state.b, 2);
+    E('kf-hp').textContent = p.r.toFixed(2)+'·e^{i·'+canon180(p.th).toFixed(1)+'°}';
+    E('kf-av').textContent = state.a.toFixed(2);
+    E('kf-bv').textContent = state.b.toFixed(2);
+    E('kf-rv').textContent = p.r.toFixed(2);
+    E('kf-thv').textContent = canon180(p.th).toFixed(1)+'°';
+    // keep sliders in sync with drag/snap state
+    E('kf-as').value = Math.max(-3, Math.min(3, state.a));
+    E('kf-bs').value = Math.max(-3, Math.min(3, state.b));
+    E('kf-rs').value = p.r;
+    E('kf-ths').value = canon180(p.th);
+    // equation cards
+    E('kf-eq-cart').innerHTML = 'z = <b>'+state.a.toFixed(2)+'</b> '+(state.b<0?'−':'+')+' <b>'+Math.abs(state.b).toFixed(2)+'i</b>';
+    E('kf-eq-polar').innerHTML = 'z = <b>'+p.r.toFixed(2)+'</b>·e^{i·<b>'+canon180(p.th).toFixed(1)+'°</b>}'+
+      (state.r<1e-9 ? ' <span class="par">(r = 0: θ vilkårlig)</span>' : '');
+    E('kf-eq-cart').style.borderColor   = state.mode==='cart' ? '#111' : 'var(--line)';
+    E('kf-eq-polar').style.borderColor  = state.mode==='polar' ? '#111' : 'var(--line)';
+  }
+  function fmtC(re,im,dec){
+    if(Math.abs(im)<5e-4) return re.toFixed(dec);
+    return re.toFixed(dec)+(im<0?' − ':' + ')+Math.abs(im).toFixed(dec)+'i';
+  }
+
+  // ---- controls: sliders set BOTH representations (one source of truth: a,b) ----
+  function bind(id, fn){
+    E(id).addEventListener('input', ev=>{ fn(parseFloat(ev.target.value)); render(); });
+  }
+  bind('kf-as', v=>{ state.a = snapVal(v); });
+  bind('kf-bs', v=>{ state.b = snapVal(v); });
+  bind('kf-rs', v=>{
+    const p0 = polar();
+    const th = p0.r>1e-9 ? p0.th : 0;
+    const r  = snapVal(v);
+    state.a = snapVal(r*Math.cos(th));
+    state.b = snapVal(r*Math.sin(th));
+  });
+  bind('kf-ths', v=>{
+    const p0 = polar();
+    if(p0.r<1e-9) return;              // θ undefined at origin — ignore
+    const th = v*D2R;
+    state.a = snapVal(p0.r*Math.cos(th));
+    state.b = snapVal(p0.r*Math.sin(th));
+  });
+  E('kf-cp').addEventListener('change',ev=>{ state.showProj=ev.target.checked; render(); });
+  E('kf-crect').addEventListener('change',ev=>{ state.showRect=ev.target.checked; render(); });
+  E('kf-ca').addEventListener('change',ev=>{ state.showArc=ev.target.checked; render(); });
+  E('kf-cr').addEventListener('change',ev=>{ state.showRing=ev.target.checked; render(); });
+  E('kf-csnap').addEventListener('change',ev=>{ state.snap=ev.target.checked; render(); });
+  E('kf-cg').addEventListener('change',ev=>{ state.showGrid=ev.target.checked; render(); });
+
+  function syncZoomChip(){ E('kf-zs').value = view.zoom; E('kf-zv').textContent = view.zoom.toFixed(2)+'×'; }
+  function resetView(){ view.zoom=1; view.cx=0; view.cy=0; syncZoomChip(); render(); }
+  E('kf-fit').addEventListener('click', resetView);
+
+  // ---- form switch: highlights the other representation ----
+  function toggleMode(){
+    state.mode = state.mode==='cart' ? 'polar' : 'cart';
+    render();
+  }
+  E('kf-same').addEventListener('click', toggleMode);
+
+  // ---- pointer: drag z, pan otherwise ----
+  let mode = null;
+  let panStart = null;
+  let dragScale = null;
+  function screenToWorld(px,py){
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    return { x: (px - W/2)/dragScale + view.cx, y: -(py - H/2)/scaleOf(rect.width,rect.height) + view.cy };
+  }
+  // (pan helper kept simple: scale frozen at pointerdown)
+  function scaleOf(W,H){ return viewScale(W,H); }
+  function zScreenPos(){
+    const rect = canvas.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    const scale = viewScale(W,H);
+    return { x: W/2 + (state.a-view.cx)*scale, y: H/2 - (state.b-view.cy)*scale };
+  }
+  canvas.addEventListener('pointerdown', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX-rect.left, py = ev.clientY-rect.top;
+    dragScale = viewScale(rect.width, rect.height);
+    const zs = zScreenPos();
+    mode = (Math.hypot(px-zs.x,py-zs.y)<=22) ? 'drag' : 'pan';
+    if(mode==='pan') panStart = { px, py, cx: view.cx, cy: view.cy, scale: dragScale };
+    canvas.setPointerCapture(ev.pointerId);
+    canvas.classList.add('grabbing');
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX-rect.left, py = ev.clientY-rect.top;
+    if(mode==='drag'){
+      const w = screenToWorld(px,py);
+      // clamp r and snap
+      let a = w.x, b = w.y;
+      const r = Math.hypot(a,b);
+      if(r > R_MAX){ a *= R_MAX/r; b *= R_MAX/r; }
+      state.a = snapVal(clampSlider(a));
+      state.b = snapVal(clampSlider(b));
+      render();
+    } else if(mode==='pan'){
+      view.cx = panStart.cx - (px-panStart.px)/panStart.scale;
+      view.cy = panStart.cy + (py-panStart.py)/panStart.scale;
+      render();
+    } else {
+      const zs = zScreenPos();
+      const near = Math.hypot(px-zs.x,py-zs.y)<=22;
+      canvas.classList.toggle('grab', near);
+    }
+  });
+  function clampSlider(v){ return Math.max(-3, Math.min(3, v)); }
+  canvas.addEventListener('pointerup',   ()=>{ mode=null; canvas.classList.remove('grabbing'); });
+  canvas.addEventListener('pointercancel',()=>{ mode=null; canvas.classList.remove('grabbing'); });
+  canvas.addEventListener('dblclick', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const w = { x:(ev.clientX-rect.left - rect.width/2)/dragScale + view.cx,
+                y:-(ev.clientY-rect.top - rect.height/2)/dragScale + view.cy };
+    view.zoom = Math.min(12, view.zoom*1.8);
+    view.cx=w.x; view.cy=w.y;
+    syncZoomChip(); render();
+  });
+  canvas.addEventListener('wheel', ev=>{
+    ev.preventDefault();
+    const f = ev.deltaY<0 ? 1.15 : 1/1.15;
+    view.zoom = Math.min(12, Math.max(0.3, view.zoom*f));
+    syncZoomChip(); render();
+  }, {passive:false});
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(ev.key==='t'||ev.key==='T') toggleMode();
+    if(ev.key==='0'||ev.key==='c') resetView();
+    if(ev.key==='+'||ev.key==='='){ view.zoom=Math.min(12,view.zoom*1.3); syncZoomChip(); render(); }
+    if(ev.key==='-'){ view.zoom=Math.max(0.3,view.zoom/1.3); syncZoomChip(); render(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.kfpolar = {
+    state, view,
+    polar,
+    setCartesian(a,b){ state.a=clampSlider(a); state.b=clampSlider(b); render(); },
+    setPolar(r,deg){
+      const th = deg*D2R;
+      state.a = clampSlider(r*Math.cos(th));
+      state.b = clampSlider(r*Math.sin(th));
+      render();
+    },
+    setMode(m){ if(m==='cart'||m==='polar'){ state.mode=m; render(); } },
+    setView(cx,cy,zoom){ view.cx=cx; view.cy=cy; view.zoom=zoom; syncZoomChip(); render(); },
+    resetView,
+    render,
+    selfTest(){
+      const s = state, p = polar();
+      // round-trip checks: polar -> cartesian -> polar must be identity (away from origin)
+      const r1 = Math.hypot(s.a,s.b), th1 = r1>1e-9 ? Math.atan2(s.b,s.a) : 0;
+      const a2 = r1*Math.cos(th1), b2 = r1*Math.sin(th1);
+      const rtDiff = Math.hypot(a2-s.a, b2-s.b);
+      return {
+        z:{ a:+s.a.toFixed(6), b:+s.b.toFixed(6), r:+r1.toFixed(6), thetaDeg:+canon180(th1).toFixed(4) },
+        mode:s.mode,
+        roundTripDiff:+rtDiff.toFixed(12),
+        roundTripOk: rtDiff < 1e-12
+      };
+    }
+  };
+  resetView();
+})();
+</script>
+</body>
+</html>

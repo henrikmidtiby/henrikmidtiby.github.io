@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2-D Linear Map · 2×2 matrix on a vector</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .mm-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .mm-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .mm-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .mm-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .mm-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.mm-grid{grid-template-columns:1fr}}
+
+  .mm-stage{position:relative;height:min(760px,80vh);min-height:500px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .mm-stage canvas{display:block;width:100%;height:100%;cursor:grab}
+  .mm-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .mm-chip{background:rgba(255,255,255,.9);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:74px}
+  .mm-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .mm-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .mm-legend{position:absolute;bottom:12px;left:12px;font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap}
+  .mm-legend b{font-weight:800;margin-right:5px;display:inline-block}
+
+  .mm-panel{display:flex;flex-direction:column;gap:11px}
+  .mm-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .mm-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .mm-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .mm-row:first-child{margin-top:0}
+  .mm-row label{font-size:13.5px;color:var(--ink)}
+  .mm-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:62px;text-align:right}
+  .mm-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .mm-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .mm-presetrow{display:flex;gap:7px;flex-wrap:wrap}
+  .mm-btn{border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:7px 11px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .mm-btn:hover{background:#f2f2f2}
+
+  .mm-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .mm-switch{ -webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .mm-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .mm-switch:checked{background:var(--ink)}
+  .mm-switch:checked:after{transform:translateX(18px)}
+
+  .mm-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .mm-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .mm-footeq .row{margin:3px 0}
+  .mm-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="mm-root" id="mm-root">
+  <div class="mm-head">
+    <div>
+      <div class="mm-title">Linear maps · a 2×2 matrix acting on a vector</div>
+      <div class="mm-sub">Set the matrix <b>A</b> and the vector <b>v</b>, then read off the image <b>Av</b>.
+        The columns of <b>A</b> <i>are</i> the images of the basis vectors <b>e₁, e₂</b> — so the whole transformation
+        is pinned down by what they do. Drag the tip of <b>v</b> on the plot.</div>
+    </div>
+  </div>
+
+  <div class="mm-grid">
+    <div class="mm-stage">
+      <canvas id="mm-canvas"></canvas>
+      <div class="mm-hud">
+        <div class="mm-chip"><span class="k">det A</span><span class="v" id="mm-det">–</span></div>
+        <div class="mm-chip"><span class="k">area scale |det|</span><span class="v" id="mm-area">–</span></div>
+        <div class="mm-chip"><span class="k">‖v‖</span><span class="v" id="mm-nv">–</span></div>
+        <div class="mm-chip"><span class="k">‖Av‖</span><span class="v" id="mm-nav">–</span></div>
+        <div class="mm-chip"><span class="k">Δθ · angle shift</span><span class="v" id="mm-dang">–</span></div>
+      </div>
+      <div class="mm-legend">
+        <span><b>│</b>v (input)</span>
+        <span><b>▮</b>Av (image)</span>
+        <span><b>◇</b>Ae₁, Ae₂ (columns)</span>
+        <span><b>▨</b>unit square image</span>
+      </div>
+    </div>
+
+    <div class="mm-panel">
+      <div class="mm-card">
+        <h3>Matrix A</h3>
+        <div class="mm-row"><label>a · (row 1, col 1)</label><span class="mm-val" id="mm-av">0.80</span></div>
+        <input class="mm-range" id="mm-as" type="range" min="-4" max="4" step="0.05" value="0.8" />
+        <div class="mm-row"><label>b · (row 1, col 2)</label><span class="mm-val" id="mm-bv">-0.60</span></div>
+        <input class="mm-range" id="mm-bs" type="range" min="-4" max="4" step="0.05" value="-0.6" />
+        <div class="mm-row"><label>c · (row 2, col 1)</label><span class="mm-val" id="mm-cv">0.60</span></div>
+        <input class="mm-range" id="mm-cs" type="range" min="-4" max="4" step="0.05" value="0.6" />
+        <div class="mm-row"><label>d · (row 2, col 2)</label><span class="mm-val" id="mm-dv">0.80</span></div>
+        <input class="mm-range" id="mm-ds" type="range" min="-4" max="4" step="0.05" value="0.8" />
+      </div>
+
+      <div class="mm-card">
+        <h3>Presets</h3>
+        <div class="mm-presetrow">
+          <button class="mm-btn" data-preset="identity">Identity</button>
+          <button class="mm-btn" data-preset="rotate">Rotate 37°</button>
+          <button class="mm-btn" data-preset="scale">Scale ×2</button>
+          <button class="mm-btn" data-preset="flip">Flip x</button>
+          <button class="mm-btn" data-preset="shear">Shear</button>
+        </div>
+      </div>
+
+      <div class="mm-card">
+        <h3>Vector v</h3>
+        <div class="mm-row"><label>x</label><span class="mm-val" id="mm-xv">2.00</span></div>
+        <input class="mm-range" id="mm-xs" type="range" min="-5" max="5" step="0.05" value="2" />
+        <div class="mm-row"><label>y</label><span class="mm-val" id="mm-yv">1.00</span></div>
+        <input class="mm-range" id="mm-ys" type="range" min="-5" max="5" step="0.05" value="1" />
+        <div class="mm-micro">Tip is draggable directly on the canvas.</div>
+      </div>
+
+      <div class="mm-card">
+        <h3>View</h3>
+        <div class="mm-row"><label>Zoom</label><span class="mm-val" id="mm-zv">1.00×</span></div>
+        <input class="mm-range" id="mm-zs" type="range" min="0.4" max="12" step="0.1" value="1" />
+        <div class="mm-micro">Drag empty space to pan · double-click to zoom in · shift-dbl-click or “0” to reset · scroll to zoom.</div>
+        <div style="border-top:1px solid var(--line);margin:12px -13px 6px"></div>
+        <div class="mm-toggle"><label>Image of unit square</label><input type="checkbox" class="mm-switch" id="mm-tsq" checked></div>
+        <div class="mm-toggle"><label>Column arrows Ae₁, Ae₂</label><input type="checkbox" class="mm-switch" id="mm-tcl" checked></div>
+        <div class="mm-toggle"><label>Basis vectors e₁, e₂</label><input type="checkbox" class="mm-switch" id="mm-tba" checked></div>
+        <div class="mm-toggle"><label>Projections of v</label><input type="checkbox" class="mm-switch" id="mm-tpr" checked></div>
+        <div class="mm-toggle"><label>Angle arc Δθ</label><input type="checkbox" class="mm-switch" id="mm-tan" checked></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mm-card mm-footeq">
+    <div class="row"><b>Linear map</b> — <code>A·v = [a b; c d]·[x; y] = (a·x + b·y,  c·x + d·y)</code></div>
+    <div class="row"><b>Columns are images of the basis</b> — <code>A·e₁ = (a, c)ᵀ</code> (column 1) and
+      <code>A·e₂ = (b, d)ᵀ</code> (column 2); since <code>v = x·e₁ + y·e₂</code>, then <code>Av = x·Ae₁ + y·Ae₂</code>.</div>
+    <div class="row"><b>Area &amp; orientation</b> — <code>det A = a·d − b·c</code>: |det| is how areas scale (shaded unit square),
+      the sign flips with orientation (improper maps, det < 0).</div>
+    <div class="mm-note">Self-contained single file · no external dependencies · white/monochrome.
+      Slide-ready: <code>&lt;iframe src="widget.html"&gt;</code> or inline the <code>mm-root</code> block into a reveal slide;
+      scriptable via <code>window.mm2</code> (e.g. <code>mm2.setA(0,-1,1,0)</code>).</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const DEG = Math.PI/180;
+  const canvas = document.getElementById('mm-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK    = '#111111';
+  const INK2   = '#3a3a3a';
+  const MID    = '#5a5a5a';
+  const MUTED  = '#555555';
+  const FAINT  = '#9a9a9a';
+  const GRID   = '#ececec';
+  const AXIS   = '#c2c2c2';
+  const PROJ   = '#6f6f6f';
+  const SQFILL = '#f1f1f1';   // unit-square image fill
+  const SQEDGE = '#7a7a7a';   // unit-square image edges
+  const COLC   = '#8a8a8a';   // column arrows (lighter: the "cause")
+
+  // ---- state ----
+  const state = {
+    a:0.8, b:-0.6, c:0.6, d:0.8,      // default: rotation by 36.87°, det = 1
+    vx:2, vy:1,
+    showSquare:true, showCols:true, showBasis:true, showProj:true, showAngle:true
+  };
+  const view = { cx:0, cy:0, zoom:1 };
+
+  // ---- math (pure) ----
+  function mul(A,vx,vy){ return { x:A[0]*vx + A[1]*vy, y:A[2]*vx + A[3]*vy }; }
+  function apply(){ const a=state; return mul([a.a,a.b,a.c,a.d], a.vx, a.vy); }
+  const col1 = () => ({ x:state.a, y:state.c });   // A·e1
+  const col2 = () => ({ x:state.b, y:state.d });   // A·e2
+  function detA(){ return state.a*state.d - state.b*state.c; }
+  // normalized angle delta in degrees, in [-180,180]
+  function dAngleDeg(){
+    const v=apply(); if (Math.hypot(v.x,v.y)<1e-9||Math.hypot(state.vx,state.vy)<1e-9) return 0;
+    let d = (Math.atan2(v.y,v.x) - Math.atan2(state.vy,state.vx))/DEG;
+    d = ((d+180)%360+360)%360 - 180;
+    return d;
+  }
+
+  // ---- sizing ----
+  let dpr = 1;
+  const RANGE = 5;   // world units visible half-extent at zoom 1
+  function scaleNow(W,H){ return (Math.min(W,H)/2 - 40)/RANGE * view.zoom; }
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(r.width*dpr));
+    canvas.height = Math.max(1, Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers (screen-space) ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function label(txt,x,y,align,color,fs){ ctx.font=(fs||12)+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.fillStyle=color; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x,y); }
+  function pill(txt,cx,cy,fs){
+    fs = fs || 11.5;
+    ctx.font='bold '+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+  function arrow(a, b, lw, color, ah){
+    ah = ah || Math.max(9, lw*2.6);
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=lw; ctx.lineCap='round';
+    const ang = Math.atan2(b[1]-a[1], b[0]-a[0]);
+    const x = b[0] - ah*Math.cos(ang), y = b[1] - ah*Math.sin(ang);
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(x,y); ctx.stroke();
+    const ha = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(b[0],b[1]);
+    ctx.lineTo(b[0]-ah*Math.cos(ang-ha), b[1]-ah*Math.sin(ang-ha));
+    ctx.lineTo(b[0]-ah*Math.cos(ang+ha), b[1]-ah*Math.sin(ang+ha));
+    ctx.closePath(); ctx.fill();
+  }
+  // perpendicular label offset for an arrow a->b at fraction f
+  function arrowLabel(txt, a, b, f, offPx, fs){
+    const dx=b[0]-a[0], dy=b[1]-a[1];
+    const len=Math.hypot(dx,dy)||1;
+    const px=a[0]+dx*f - (dy/len)*offPx, py=a[1]+dy*f + (dx/len)*offPx;
+    pill(txt, px, py, fs||11);
+  }
+  // label placed just past the tip; optional perp pushes it to one side (separates near-parallel arrows)
+  function tipLabel(txt, a, b, outPx, perp, fs){
+    fs = fs || 11; perp = perp || 0;
+    const dx=b[0]-a[0], dy=b[1]-a[1];
+    const len=Math.hypot(dx,dy)||1;
+    const ux=dx/len, uy=dy/len, nx=-uy, ny=ux;
+    let px=b[0]+ux*outPx+nx*perp, py=b[1]+uy*outPx+ny*perp;
+    px=Math.max(10, Math.min(canvas.clientWidth-10, px));
+    py=Math.max(10, Math.min(canvas.clientHeight-10, py));
+    pill(txt, px, py, fs);
+  }
+
+  // ---- render (synchronous; called on any change) ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    const scale = scaleNow(W,H);
+    const cx = W/2, cy = H/2;
+    const sx = wx => cx + (wx - view.cx)*scale;
+    const sy = wy => cy - (wy - view.cy)*scale;
+    const O = [sx(0), sy(0)];
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const av  = apply();
+    const c1  = col1();
+    const c2  = col2();
+    const det = detA();
+
+    // grid + axes (world-anchored)
+    const half = (Math.min(W,H)/2)/scale + 1;
+    const uMin = Math.floor(view.cx-half), uMax = Math.ceil(view.cx+half);
+    const vMin = Math.floor(view.cy-half), vMax = Math.ceil(view.cy+half);
+    ctx.lineWidth=1; ctx.strokeStyle=GRID;
+    for(let u=uMin;u<=uMax;u++){
+      ctx.beginPath(); ctx.moveTo(sx(u),sy(vMin)); ctx.lineTo(sx(u),sy(vMax)); ctx.stroke();
+    }
+    for(let v=vMin;v<=vMax;v++){
+      ctx.beginPath(); ctx.moveTo(sx(uMin),sy(v)); ctx.lineTo(sx(uMax),sy(v)); ctx.stroke();
+    }
+    ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(sx(uMin),sy(0)); ctx.lineTo(sx(uMax),sy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0),sy(vMin)); ctx.lineTo(sx(0),sy(vMax)); ctx.stroke();
+    for(let u=uMin;u<=uMax;u++){
+      if(u===0) continue;
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.moveTo(sx(u),sy(0)-5); ctx.lineTo(sx(u),sy(0)+5); ctx.stroke();
+      label(String(u), sx(u), sy(0)+13, 'center', FAINT, 10.5);
+    }
+    for(let v=vMin;v<=vMax;v++){
+      if(v===0) continue;
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.moveTo(sx(0)-5,sy(v)); ctx.lineTo(sx(0)+5,sy(v)); ctx.stroke();
+      label(String(v), sx(0)-9, sy(v), 'right', FAINT, 10.5);
+    }
+    label('x', sx(uMax), sy(0)-14, 'right', MUTED, 12);
+    label('y', sx(0)+14, sy(vMax), 'left', MUTED, 12);
+    label('O', sx(0)-10, sy(0)+12, 'right', FAINT, 11);
+
+    // ---- image of the unit square (parallelogram spanned by the columns) ----
+    if(state.showSquare){
+      const p0=[O[0],O[1]], p1=[sx(c1.x),sy(c1.y)],
+            p2=[sx(c1.x+c2.x),sy(c1.y+c2.y)], p3=[sx(c2.x),sy(c2.y)];
+      ctx.beginPath();
+      ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.lineTo(p3[0],p3[1]);
+      ctx.closePath();
+      ctx.fillStyle=SQFILL; ctx.fill();
+      ctx.lineWidth=1.6; ctx.strokeStyle=SQEDGE; ctx.stroke();
+      if(Math.hypot(c1.x+c2.x, c1.y+c2.y)>0.9){
+        pill('A·[1;1]', (p2[0]+p1[0])/2, (p2[1]+p1[1])/2, 10.5);
+      }
+    }
+
+    // ---- basis vectors e1, e2 (light) ----
+    if(state.showBasis){
+      arrow([O[0],O[1]], [sx(1),sy(0)], 1.6, FAINT, 9);
+      arrow([O[0],O[1]], [sx(0),sy(1)], 1.6, FAINT, 9);
+      arrowLabel('e1', O, [sx(1),sy(0)], 0.85, 12, 10.5);
+      arrowLabel('e2', O, [sx(0),sy(1)], 0.85, -12, 10.5);
+    }
+
+    // ---- column arrows: Ae1 = (a,c), Ae2 = (b,d) ----
+    if(state.showCols){
+      if(Math.hypot(c1.x,c1.y)>1e-6){
+        arrow(O, [sx(c1.x),sy(c1.y)], 2.4, COLC, 11);
+        tipLabel('Ae₁', O, [sx(c1.x),sy(c1.y)], 20, 11);
+      }
+      if(Math.hypot(c2.x,c2.y)>1e-6){
+        arrow(O, [sx(c2.x),sy(c2.y)], 2.4, COLC, 11);
+        tipLabel('Ae₂', O, [sx(c2.x),sy(c2.y)], 20, 11);
+      }
+    }
+
+    // ---- projections of v ----
+    if(state.showProj && Math.hypot(state.vx,state.vy)>1e-6){
+      const vp=[sx(state.vx),sy(state.vy)];
+      ctx.setLineDash([5,5]); ctx.lineWidth=1.3; ctx.strokeStyle=PROJ;
+      ctx.beginPath(); ctx.moveTo(vp[0],vp[1]); ctx.lineTo(vp[0],sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(vp[0],vp[1]); ctx.lineTo(sx(0),vp[1]); ctx.stroke();
+      ctx.setLineDash([]);
+      circle(vp[0],sy(0),3,INK);
+      circle(sx(0),vp[1],3,INK);
+    }
+
+    // ---- angle arc between v and Av ----
+    if(state.showAngle){
+      const lv=Math.hypot(state.vx,state.vy), la=Math.hypot(av.x,av.y);
+      if(lv>0.05 && la>0.05){
+        const a1=-Math.atan2(state.vy,state.vx);   // screen angle (canvas y flipped)
+        const a2=-Math.atan2(av.y,av.x);
+        // positive Δθ (CCW in math coords) = clockwise on screen
+        const dDeg = dAngleDeg();
+        const rad = Math.min(46, scale*0.55);
+        ctx.lineWidth=2; ctx.strokeStyle=INK2; ctx.setLineDash([]);
+        ctx.beginPath();
+        if(dDeg>=0) ctx.arc(O[0],O[1],rad, a1, a2, true);
+        else        ctx.arc(O[0],O[1],rad, a1, a2, false);
+        ctx.stroke();
+      }
+    }
+
+    // ---- v (input) : solid thin black ----
+    if(Math.hypot(state.vx,state.vy)>1e-6){
+      const vp=[sx(state.vx),sy(state.vy)];
+      arrow(O, vp, 3, INK, 13);
+      circle(vp[0],vp[1],6,'#fff',INK,2);
+      circle(vp[0],vp[1],2.2,INK);
+      tipLabel('v = ('+state.vx.toFixed(2)+', '+state.vy.toFixed(2)+')', O, vp, 20, -55, 11);
+    }
+
+    // ---- Av (image) : thick black, square marker ----
+    if(Math.hypot(av.x,av.y)>1e-6){
+      const ap=[sx(av.x),sy(av.y)];
+      arrow(O, ap, 5, INK, 16);
+      // square marker
+      const s=6.5;
+      ctx.fillStyle='#fff'; ctx.strokeStyle=INK; ctx.lineWidth=2.2;
+      ctx.beginPath();
+      ctx.rect(ap[0]-s,ap[1]-s,2*s,2*s);
+      ctx.fill(); ctx.stroke();
+      // crosshair
+      ctx.beginPath(); ctx.moveTo(ap[0]-11,ap[1]); ctx.lineTo(ap[0]+11,ap[1]); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ap[0],ap[1]-11); ctx.lineTo(ap[0],ap[1]+11); ctx.stroke();
+      tipLabel('Av = ('+av.x.toFixed(2)+', '+av.y.toFixed(2)+')', O, ap, 22, 11);
+    }
+
+    updReadout(av, det);
+  }
+
+  // ---- HUD ----
+  const e = id => document.getElementById(id);
+  function updReadout(av, det){
+    e('mm-det').textContent  = det.toFixed(3);
+    e('mm-area').textContent = Math.abs(det).toFixed(3);
+    e('mm-nv').textContent   = Math.hypot(state.vx,state.vy).toFixed(3);
+    e('mm-nav').textContent  = Math.hypot(av.x,av.y).toFixed(3);
+    e('mm-dang').textContent = (Math.hypot(av.x,av.y)>1e-6 && Math.hypot(state.vx,state.vy)>1e-6)
+        ? dAngleDeg().toFixed(1)+'°' : '—';
+  }
+
+  // ---- controls ----
+  function bind(rangeId, outId, fn, fmt){
+    const r = e(rangeId), o = e(outId);
+    r.addEventListener('input', ()=>{
+      const v = parseFloat(r.value);
+      fn(v); o.textContent = fmt(v);
+      render();
+    });
+  }
+  bind('mm-as','mm-av', v=>{ state.a=v; }, v=>v.toFixed(2));
+  bind('mm-bs','mm-bv', v=>{ state.b=v; }, v=>v.toFixed(2));
+  bind('mm-cs','mm-cv', v=>{ state.c=v; }, v=>v.toFixed(2));
+  bind('mm-ds','mm-dv', v=>{ state.d=v; }, v=>v.toFixed(2));
+  bind('mm-xs','mm-xv', v=>{ state.vx=v; }, v=>v.toFixed(2));
+  bind('mm-ys','mm-yv', v=>{ state.vy=v; }, v=>v.toFixed(2));
+  bind('mm-zs','mm-zv',  v=>{ view.zoom=v; }, v=>v.toFixed(2)+'×');
+
+  e('mm-tsq').addEventListener('change',ev=>{ state.showSquare=ev.target.checked; render(); });
+  e('mm-tcl').addEventListener('change',ev=>{ state.showCols  =ev.target.checked; render(); });
+  e('mm-tba').addEventListener('change',ev=>{ state.showBasis =ev.target.checked; render(); });
+  e('mm-tpr').addEventListener('change',ev=>{ state.showProj  =ev.target.checked; render(); });
+  e('mm-tan').addEventListener('change',ev=>{ state.showAngle =ev.target.checked; render(); });
+
+  const clampV = v => Math.max(-5, Math.min(5, v));
+  function syncControls(){
+    e('mm-as').value=state.a; e('mm-av').textContent=state.a.toFixed(2);
+    e('mm-bs').value=state.b; e('mm-bv').textContent=state.b.toFixed(2);
+    e('mm-cs').value=state.c; e('mm-cv').textContent=state.c.toFixed(2);
+    e('mm-ds').value=state.d; e('mm-dv').textContent=state.d.toFixed(2);
+    e('mm-xs').value=state.vx; e('mm-xv').textContent=(+clampV(state.vx)).toFixed(2);
+    e('mm-ys').value=state.vy; e('mm-yv').textContent=(+clampV(state.vy)).toFixed(2);
+  }
+
+  // ---- presets ----
+  const PRESETS = {
+    identity:{a:1,b:0,c:0,d:1},
+    rotate:{a:0.8,b:-0.6,c:0.6,d:0.8},
+    scale:{a:2,b:0,c:0,d:2},
+    flip:{a:-1,b:0,c:0,d:1},
+    shear:{a:1,b:1,c:0,d:1}
+  };
+  function preset(name){
+    const p = PRESETS[name]; if(!p) return false;
+    state.a=p.a; state.b=p.b; state.c=p.c; state.d=p.d;
+    syncControls(); render();
+    return true;
+  }
+  document.querySelectorAll('[data-preset]').forEach(b=>{
+    b.addEventListener('click', ()=>preset(b.getAttribute('data-preset')));
+  });
+
+  // ---- view: pan / zoom / drag the vector tip ----
+  function pointerWorld(ev){
+    const r = canvas.getBoundingClientRect();
+    const W=r.width, H=r.height;
+    const scale = scaleNow(W,H);
+    const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    return { x:(px - W/2)/scale + view.cx, y:-((py - H/2)/scale) + view.cy };
+  }
+  function tipScreen(){
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    const scale=scaleNow(W,H);
+    return [W/2+(state.vx-view.cx)*scale, H/2-(state.vy-view.cy)*scale];
+  }
+  let dragging=false, dragVec=false, dragOff=null;
+  canvas.addEventListener('pointerdown', ev=>{
+    dragging=true;
+    const w=pointerWorld(ev);
+    const t=tipScreen();
+    const nearV = Math.hypot(state.vx,state.vy)>1e-6 && Math.hypot(w.x-state.vx, w.y-state.vy) < 24/scaleNow(canvas.clientWidth,canvas.clientHeight);
+    dragVec = nearV;
+    if(!dragVec) dragOff={ dx: view.cx - w.x, dy: view.cy - w.y };
+    canvas.setPointerCapture(ev.pointerId);
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!dragging) return;
+    const w=pointerWorld(ev);
+    if(dragVec){
+      state.vx=clampV(w.x); state.vy=clampV(w.y);
+      syncControls();
+    } else {
+      view.cx = w.x + dragOff.dx;
+      view.cy = w.y + dragOff.dy;
+    }
+    render();
+  });
+  canvas.addEventListener('pointerup',   ()=>{ dragging=false; });
+  canvas.addEventListener('pointercancel',()=>{ dragging=false; });
+
+  function setZoom(z){
+    view.zoom = Math.max(0.4, Math.min(12, z));
+    e('mm-zs').value = view.zoom; e('mm-zv').textContent = view.zoom.toFixed(2)+'×';
+    render();
+  }
+  function resetView(){
+    view.zoom=1; view.cx=0; view.cy=0;
+    e('mm-zs').value=1; e('mm-zv').textContent='1.00×';
+    render();
+  }
+  canvas.addEventListener('dblclick', ev=>{
+    if(ev.shiftKey){ resetView(); return; }
+    const w=pointerWorld(ev);
+    view.cx=w.x; view.cy=w.y;
+    setZoom(view.zoom*1.8);
+  });
+  canvas.addEventListener('wheel', ev=>{
+    ev.preventDefault();
+    setZoom(view.zoom * (ev.deltaY<0 ? 1.12 : 1/1.12));
+  }, {passive:false});
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(ev.key==='0'||ev.key==='c') resetView();
+    if(ev.key==='+'||ev.key==='=') setZoom(view.zoom*1.3);
+    if(ev.key==='-') setZoom(view.zoom/1.3);
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.mm2 = {
+    state, view,
+    apply, col1, col2, detA, mul,
+    setA(a,b,c,d){ state.a=a; state.b=b; state.c=c; state.d=d; syncControls(); render(); },
+    setV(x,y){ state.vx=x; state.vy=y; syncControls(); render(); },
+    preset,
+    setView(cx,cy,zoom){ view.cx=cx; view.cy=cy; view.zoom=zoom; setZoom(view.zoom); },
+    setZoom,
+    resetView,
+    render,
+    selfTest(){
+      const {a,b,c,d,vx,vy} = state;
+      const avx=a*vx+b*vy, avy=c*vx+d*vy;
+      const c1x=a, c1y=c, c2x=b, c2y=d;
+      const det = a*d - b*c;
+      // independent check 1: Av must equal x·(Ae1) + y·(Ae2) using the basis images
+      const combX = vx*c1x + vy*c2x, combY = vx*c1y + vy*c2y;
+      // independent check 2: area of the parallelogram O, Ae1, Ae1+Ae2, Ae2 (shoelace) = |det|
+      const pts=[[0,0],[c1x,c1y],[c1x+c2x,c1y+c2y],[c2x,c2y]];
+      let sh=0;
+      for(let i=0;i<pts.length;i++){
+        const x1=pts[i][0], y1=pts[i][1], x2=pts[(i+1)%4][0], y2=pts[(i+1)%4][1];
+        sh += x1*y2 - x2*y1;
+      }
+      const area=Math.abs(sh/2);
+      const angv=Math.atan2(vy,vx);
+      const ang=(Math.atan2(avy,avx)-angv)/DEG;
+      const angn=((ang+180)%360+360)%360-180;
+      return {
+        a:+a.toFixed(4), b:+b.toFixed(4), c:+c.toFixed(4), d:+d.toFixed(4),
+        v:{x:+vx.toFixed(4), y:+vy.toFixed(4)},
+        av:{x:+avx.toFixed(4), y:+avy.toFixed(4), r:+Math.hypot(avx,avy).toFixed(4)},
+        cols:{c1:{x:+c1x.toFixed(4), y:+c1y.toFixed(4)}, c2:{x:+c2x.toFixed(4), y:+c2y.toFixed(4)}},
+        det:+det.toFixed(4), trace:+(a+d).toFixed(4), area:+area.toFixed(4),
+        dAngleDeg:+angn.toFixed(3),
+        checks:{
+          avEqualsCombo: Math.hypot(avx-combX, avy-combY) < 1e-9,
+          areaEqualsDet: Math.abs(area-Math.abs(det)) < 1e-9
+        }
+      };
+    }
+  };
+  resetView();
+})();
+document.getElementById('mm-tsq').click()
+document.getElementById('mm-tcl').click()
+document.getElementById('mm-tba').click()
+document.getElementById('mm-tpr').click()
+document.getElementById('mm-tan').click()
+</script>
+</body>
+</html>

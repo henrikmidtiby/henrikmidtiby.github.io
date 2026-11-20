@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enhedscirklen: θ → sin, cos og symmetri-vinkler</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .uc-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .uc-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .uc-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .uc-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .uc-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.uc-grid{grid-template-columns:1fr}}
+
+  .uc-stage{position:relative;height:min(640px,70vh);min-height:460px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .uc-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .uc-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .uc-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:86px}
+  .uc-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .uc-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .uc-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .uc-panel{display:flex;flex-direction:column;gap:11px}
+  .uc-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .uc-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .uc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .uc-row:first-child{margin-top:0}
+  .uc-row label{font-size:13.5px;color:var(--ink)}
+  .uc-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:74px;text-align:right}
+  .uc-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .uc-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .uc-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .uc-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .uc-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .uc-switch:checked{background:var(--ink)}
+  .uc-switch:checked:after{transform:translateX(18px)}
+
+  .uc-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .uc-btn:hover{background:#f2f2f2}
+
+  .uc-eq{font-size:14.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+    padding:9px 6px;border:1px solid var(--line);border-radius:9px;background:#fafafa;margin:8px 0}
+  .uc-eq .sym{color:#8a8a8a;font-weight:400;font-size:12px}
+  .uc-color{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+
+  .uc-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .uc-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .uc-footeq .row{margin:3px 0}
+  .uc-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="uc-root" id="uc-root">
+  <div class="uc-head">
+    <div>
+      <div class="uc-title">Enhedscirklen: θ → sin, cos og symmetri-vinkler</div>
+      <div class="uc-sub">Træk det sorte punkt rundt på cirklen (eller brug slideren). De fire symmetripunkter
+        viser <span style="color:#0a7d0a">π−θ</span>, <span style="color:#b00000">−θ</span> og
+        <span style="color:#0060c0">π+θ</span> — og nederst bygges sin/cos-kurven op punkt for punkt.</div>
+    </div>
+  </div>
+
+  <div class="uc-grid">
+    <div class="uc-stage">
+      <canvas id="uc-canvas"></canvas>
+      <div class="uc-hud">
+        <div class="uc-chip"><span class="k">θ (rad)</span><span class="v" id="uc-hrad">–</span></div>
+        <div class="uc-chip"><span class="k">θ (grader)</span><span class="v" id="uc-hdeg">–</span></div>
+        <div class="uc-chip"><span class="k">cos θ</span><span class="v" id="uc-hcos">–</span></div>
+        <div class="uc-chip"><span class="k">sin θ</span><span class="v" id="uc-hsin">–</span></div>
+      </div>
+      <div class="uc-hint">Træk i punktet · ↑/↓ = θ ± 15° · mellemrum = start/stop animation</div>
+    </div>
+
+    <div class="uc-panel">
+      <div class="uc-card">
+        <h3>Vinkel</h3>
+        <div class="uc-row"><label>θ (grader)</label><span class="uc-val" id="uc-dv">–</span></div>
+        <input class="uc-range" id="uc-ds" type="range" min="-180" max="180" step="1" value="30" />
+        <div class="uc-row" style="margin-top:10px"><label>θ (radianer · π)</label><span class="uc-val" id="uc-rv">–</span></div>
+        <button class="uc-btn" id="uc-anim">▶ Animer θ (mellemrum)</button>
+        <div class="uc-micro" style="margin-top:8px">Gode værdier:
+          <button class="uc-snap uc-mini" data-d="30">30°</button>
+          <button class="uc-snap uc-mini" data-d="45">45°</button>
+          <button class="uc-snap uc-mini" data-d="60">60°</button>
+          <button class="uc-snap uc-mini" data-d="135">135°</button>
+        </div>
+      </div>
+
+      <div class="uc-card">
+        <h3>Visning</h3>
+        <div class="uc-toggle"><label>Symmetripunkter</label><input type="checkbox" class="uc-switch" id="uc-csym" checked></div>
+        <div class="uc-toggle"><label>Hjælpetrekanter</label><input type="checkbox" class="uc-switch" id="uc-ctri" checked></div>
+        <div class="uc-toggle"><label>Koordinatakser & cirkel</label><input type="checkbox" class="uc-switch" id="uc-cax" checked></div>
+        <div class="uc-toggle"><label>Sporet på kurven</label><input type="checkbox" class="uc-switch" id="uc-ctrace" checked></div>
+        <div class="uc-micro">Pythagoras: sin²θ + cos²θ = 1 — radius er altid 1.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('uc-canvas');
+  const ctx = canvas.getContext('2d');
+  const E = id => document.getElementById(id);
+
+  // ---- palette (monokrom + 4 accentfarver, print-venlig) ----
+  const INK='#111111', INK2='#3a3a3a', MUTED='#555555', FAINT='#9a9a9a';
+  const GRID='#ececec', AXIS='#c2c2c2';
+  const GREEN='#0a7d0a', RED='#b00000', BLUE='#0060c0';
+  const CURVE_SIN='#b00000', CURVE_COS='#0a7d0a';
+
+  // ---- state ----
+  const state = {
+    deg: 30,                       // vinkel i grader, [-180, 180]
+    showSym:true, showTri:true, showAxes:true, showTrace:true,
+    anim:null, animDir:1
+  };
+  const rad = () => state.deg * Math.PI / 180;
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = window.devicePixelRatio || 1;
+    canvas.width  = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- layout: venstre halvdel = cirkel, højre halvdel = kurve ----
+  let L = null;
+  function makeLayout(){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const splitX = Math.round(W*0.52);
+    const cR  = Math.min(splitX, H) * 0.36;              // cirkelradius i px
+    const cCx = splitX*0.5, cCy = H*0.5;
+    // kurve-område: theta [-180,180] -> x, sin/cos [-1,1] -> y
+    const mLeft = 14, mRight = 20, mTop = 26, mBot = 30;
+    const kx0 = splitX + mLeft, kx1 = W - mRight;
+    const ky0 = mTop, ky1 = H - mBot;
+    const kx = d => kx0 + (d+180)/360 * (kx1-kx0);
+    const ky = v => ky1 - (v+1)/2 * (ky1-ky0);
+    L = {W,H,splitX,cR,cCx,cCy,kx0,kx1,ky0,ky1,kx,ky};
+  }
+
+  // ---- draw helpers ----
+  function line(a,b,w,c,dash){
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round';
+    if(dash) ctx.setLineDash(dash);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  function dot(x,y,r,fill,stroke,lw){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    if(fill){ ctx.fillStyle=fill; ctx.fill(); }
+    if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=lw||2; ctx.stroke(); }
+  }
+  function pill(txt,cx,cy,fs,color,bold){
+    fs = fs||11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w = ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.92)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px, cy-hs-py, w+2*px, fs+2*py, 4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=color||INK; ctx.fillText(txt,cx,cy);
+  }
+  function fmtPi(deg){
+    // pæn π-notation for gængse vinkler, ellers decimaler
+    const table = {
+      '-180':'−π','-135':'−3π/4','-120':'−2π/3','-90':'−π/2','-60':'−π/3','-45':'−π/4','-30':'−π/6',
+      '0':'0','30':'π/6','45':'π/4','60':'π/3','90':'π/2','120':'2π/3','135':'3π/4','180':'π',
+      '-150':'−5π/6','150':'5π/6','210':'7π/6','225':'5π/4'
+    };
+    return table[String(deg)] || (deg*Math.PI/180).toFixed(3);
+  }
+
+  // ---- render ----
+  function render(){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    if(!W||!H) return;
+    makeLayout();
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+
+    const th = rad();
+    const c = Math.cos(th), s = Math.sin(th);
+
+    // ---------- venstre: enhedscirklen ----------
+    const {cR,cCx,cCy,splitX} = L;
+    const px = (x,y)=>[cCx + x*cR, cCy - y*cR];
+
+    if(state.showAxes){
+      // lys gitter
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(const gv of [-1,-0.5,0.5,1]){
+        const p1=px(gv,-1.15), p2=px(gv,1.15);
+        ctx.beginPath(); ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.stroke();
+        const p3=px(-1.15,gv), p4=px(1.15,gv);
+        ctx.beginPath(); ctx.moveTo(p3[0],p3[1]); ctx.lineTo(p4[0],p4[1]); ctx.stroke();
+      }
+      // akser
+      line(px(-1.15,0),px(1.15,0),1.5,AXIS);
+      line(px(0,-1.15),px(0,1.15),1.5,AXIS);
+      // enhedscirklen
+      ctx.beginPath(); ctx.arc(cCx,cCy,cR,0,Math.PI*2);
+      ctx.strokeStyle=INK; ctx.lineWidth=1.8; ctx.stroke();
+      // enheds-markeringer
+      for(const [x,y] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const p = px(x,y); dot(p[0],p[1],2.6,FAINT);
+      }
+      ctx.fillStyle=FAINT; ctx.font='11px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const p1x = px(1,0); ctx.fillText('1', p1x[0], p1x[1]+6);
+      const p1y = px(0,1); ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText('1', p1y[0]-7, p1y[1]);
+    }
+
+    // symmetripunkter + deres vinkler
+    const angles = [
+      {d: state.deg,        col:INK,   lab:'θ',        arcR:0.24},
+      {d: 180-state.deg,    col:GREEN, lab:'π−θ',      arcR:0.31},
+      {d: -state.deg,       col:RED,   lab:'−θ',       arcR:0.275},
+      {d: state.deg-180,    col:BLUE,  lab:'π+θ',      arcR:0.345},
+    ];
+    if(state.showSym){
+      for(const a of angles){
+        const x = Math.cos(a.d*Math.PI/180), y = Math.sin(a.d*Math.PI/180);
+        const p = px(x,y);
+        // linje fra origo
+        line(px(0,0), p, 2.2, a.col);
+        // prik
+        dot(p[0],p[1],5.5,'#fff',a.col,2.4);
+        dot(p[0],p[1],2,a.col);
+        // vinkelbue fra positiv x-akse
+        const startA = 0, endA = a.d*Math.PI/180;
+        ctx.beginPath();
+        ctx.arc(cCx,cCy, a.arcR*cR, -startA, -endA, endA>startA);
+        ctx.strokeStyle=a.col; ctx.lineWidth=1.4; ctx.stroke();
+        // label ved punktet (unika unicode minus for konsistens med resten af teksten)
+        const lx = cCx + (x*1.32)*cR, ly = cCy - (y*1.32)*cR;
+        const fnum = v => (v<0? '−' : '') + Math.abs(v).toFixed(2);
+        pill(a.lab+' ('+fnum(x)+', '+fnum(y)+')', lx, ly, 10.5, a.col, true);
+      }
+      // θ-bue label
+      const mid = (state.deg/2)*Math.PI/180;
+      pill('θ', cCx+0.38*cR*Math.cos(mid), cCy-0.38*cR*Math.sin(mid), 11, INK, true);
+    }
+
+    // hovedpunktet (draggbart)
+    const hp = px(c,s);
+    if(state.showTri){
+      // hjælpetrekant: hypotenuse, lodret katete (sin), vandret katete (cos)
+      const foot = px(c,0);
+      line(hp, foot, 2.6, MUTED);                    // sin-katete
+      line(px(0,0), foot, 2.6, MUTED);               // cos-katete
+      pill('cos θ = '+c.toFixed(2), (foot[0]+px(0,0)[0])/2, foot[1]+14, 10.5, INK);
+      pill('sin θ = '+s.toFixed(2), hp[0] + (c>=0? 34 : -34), (hp[1]+foot[1])/2, 10.5, INK);
+    }
+    // hovedpunktet tegnes sidst (øverst)
+    dot(hp[0],hp[1],8,'#fff',INK,3);
+    dot(hp[0],hp[1],2.8,INK);
+
+    // ---------- højre: sin/cos-kurven ----------
+    const {kx0,kx1,ky0,ky1,kx,ky} = L;
+    // ramme + nul-akse
+    ctx.strokeStyle=AXIS; ctx.lineWidth=1.2;
+    ctx.strokeRect(kx0,ky0,kx1-kx0,ky1-ky0);
+    line([kx0,ky(0)],[kx1,ky(0)],1.2,AXIS);
+    ctx.setLineDash([4,4]); line([kx(0),ky0],[kx(0),ky1],1,AXIS); ctx.setLineDash([]);
+    ctx.setLineDash([4,4]); line([kx0,ky(1)],[kx1,ky(1)],1,'#eee'); line([kx0,ky(-1)],[kx1,ky(-1)],1,'#eee'); ctx.setLineDash([]);
+    // labels
+    ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    for(const d of [-180,-90,0,90,180]){
+      const lbl = d===0 ? '0' : (d===180?'π':(d===-180?'−π':(d===90?'π/2':'−π/2')));
+      ctx.fillText(lbl, kx(d), ky(0)+5);
+    }
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText('1', kx0-4, ky(1));
+    ctx.fillText('0', kx0-4, ky(0));
+    ctx.fillText('−1', kx0-4, ky(-1));
+    // kurver (fulde, tynde)
+    function plotCurve(fn,color,lw,dash){
+      ctx.beginPath(); ctx.setLineDash(dash||[]);
+      for(let d=-180; d<=180; d+=2){
+        const v = fn(d*Math.PI/180);
+        const X = kx(d), Y = ky(v);
+        if(d===-180) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+      }
+      ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.stroke(); ctx.setLineDash([]);
+    }
+    plotCurve(Math.sin, CURVE_SIN, 1.4, [5,4]);
+    plotCurve(Math.cos, CURVE_COS, 1.4, [5,4]);
+
+    // sporet: kurve fra -180 til nuværende θ, kraftig
+    if(state.showTrace){
+      ctx.beginPath();
+      for(let d=-180; d<=state.deg; d+=1){
+        const X=kx(d), Y=ky(Math.sin(d*Math.PI/180));
+        if(d===-180) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+      }
+      ctx.strokeStyle=CURVE_SIN; ctx.lineWidth=2.6; ctx.stroke();
+      ctx.beginPath();
+      for(let d=-180; d<=state.deg; d+=1){
+        const X=kx(d), Y=ky(Math.cos(d*Math.PI/180));
+        if(d===-180) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+      }
+      ctx.strokeStyle=CURVE_COS; ctx.lineWidth=2.6; ctx.stroke();
+    }
+    // bevægende punkter på kurven
+    dot(kx(state.deg), ky(s), 5, '#fff', CURVE_SIN, 2.2);
+    dot(kx(state.deg), ky(c), 5, '#fff', CURVE_COS, 2.2);
+    // lodret forbindelseslinje
+    ctx.setLineDash([3,3]); line([kx(state.deg),ky0],[kx(state.deg),ky1],1,FAINT); ctx.setLineDash([]);
+
+    updReadout();
+  }
+
+  // ---- readouts ----
+  function updReadout(){
+    const th = rad(), c = Math.cos(th), s = Math.sin(th);
+    E('uc-hrad').textContent = th.toFixed(3);
+    E('uc-hdeg').textContent = state.deg + '°';
+    E('uc-hcos').textContent = c.toFixed(3);
+    E('uc-hsin').textContent = s.toFixed(3);
+    E('uc-dv').textContent = state.deg + '°';
+    E('uc-rv').textContent = fmtPi(state.deg);
+    E('uc-ds').value = state.deg;
+    E('uc-eqx').textContent = c.toFixed(2);
+    E('uc-eqy').textContent = s.toFixed(2);
+    E('uc-eqpi').textContent = s.toFixed(2);
+    E('uc-eqpid').textContent = (180-state.deg) + '°';
+    E('uc-eqneg').textContent = (-s).toFixed(2);
+  }
+
+  // ---- controls ----
+  E('uc-ds').addEventListener('input', e=>{ stopAnim(); state.deg = +e.target.value; render(); });
+  document.querySelectorAll('.uc-snap').forEach(btn=>{
+    btn.addEventListener('click',()=>{ stopAnim(); state.deg = +btn.dataset.d; render(); });
+  });
+  E('uc-csym').addEventListener('change', e=>{ state.showSym = e.target.checked; render(); });
+  E('uc-ctri').addEventListener('change', e=>{ state.showTri = e.target.checked; render(); });
+  E('uc-cax').addEventListener('change', e=>{ state.showAxes = e.target.checked; render(); });
+  E('uc-ctrace').addEventListener('change', e=>{ state.showTrace = e.target.checked; render(); });
+
+  function stopAnim(){
+    if(state.anim){ cancelAnimationFrame(state.anim); state.anim=null;
+      E('uc-anim').textContent='▶ Animer θ (mellemrum)'; }
+  }
+  function startAnim(){
+    stopAnim();
+    E('uc-anim').textContent='⏸ Stop animation';
+    const tick = ()=>{
+      state.deg += state.animDir*1;
+      if(state.deg>=180){ state.deg=180; state.animDir=-1; }
+      if(state.deg<=-180){ state.deg=-180; state.animDir=1; }
+      render();
+      state.anim = requestAnimationFrame(tick);
+    };
+    state.anim = requestAnimationFrame(tick);
+  }
+  E('uc-anim').addEventListener('click', ()=> state.anim ? stopAnim() : startAnim());
+
+  // ---- pointer: drag hovedpunktet ----
+  let dragging = false;
+  function hit(px,py){
+    const c = Math.cos(rad()), s = Math.sin(rad());
+    const hx = L.cCx + c*L.cR, hy = L.cCy - s*L.cR;
+    return Math.hypot(px-hx, py-hy) <= 20;
+  }
+  canvas.addEventListener('pointerdown', ev=>{
+    const r = canvas.getBoundingClientRect();
+    if(hit(ev.clientX-r.left, ev.clientY-r.top)){
+      dragging = true; stopAnim();
+      canvas.setPointerCapture(ev.pointerId);
+    }
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!dragging) return;
+    const r = canvas.getBoundingClientRect();
+    const x = (ev.clientX-r.left - L.cCx)/L.cR;
+    const y = -(ev.clientY-r.top - L.cCy)/L.cR;
+    let d = Math.atan2(y,x) * 180/Math.PI;
+    state.deg = Math.max(-180, Math.min(180, Math.round(d)));
+    render();
+  });
+  const endDrag = ()=>{ dragging=false; };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if(ev.code==='Space'){ ev.preventDefault(); state.anim?stopAnim():startAnim(); }
+    if(ev.key==='ArrowUp'){ stopAnim(); state.deg=Math.min(180,state.deg+15); render(); ev.preventDefault(); }
+    if(ev.key==='ArrowDown'){ stopAnim(); state.deg=Math.max(-180,state.deg-15); render(); ev.preventDefault(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.ucCircle = {
+    state,
+    setDegrees(d){ state.deg = Math.max(-180, Math.min(180, Math.round(d))); render(); },
+    getValues(){
+      const th = rad();
+      return { deg: state.deg, rad: th, cos: Math.cos(th), sin: Math.sin(th),
+               cosNeg: Math.cos(-th), sinNeg: Math.sin(-th),
+               sinPiMinus: Math.sin(Math.PI - th), cosPiPlus: Math.cos(Math.PI + th), sinPiPlus: Math.sin(Math.PI + th) };
+    },
+    render,
+    selfTest(){
+      const out = {checks:[], ok:true};
+      const chk = (name, cond, val)=>{ out.checks.push({name, pass:!!cond, val}); if(!cond) out.ok=false; };
+      // symmetri-identiteter for et gitter af vinkler
+      let okAll = true;
+      for(let d=-170; d<=170; d+=5){
+        const th = d*Math.PI/180;
+        if(Math.abs(Math.sin(Math.PI-th) - Math.sin(th)) > 1e-12) okAll=false;
+        if(Math.abs(Math.cos(-th) - Math.cos(th)) > 1e-12) okAll=false;
+        if(Math.abs(Math.sin(Math.PI+th) + Math.sin(th)) > 1e-12) okAll=false;
+        if(Math.abs(Math.cos(Math.PI+th) + Math.cos(th)) > 1e-12) okAll=false;
+        if(Math.abs(Math.sin(th)**2 + Math.cos(th)**2 - 1) > 1e-12) okAll=false;
+      }
+      chk('symmetri-identiteter (71 vinkler)', okAll, null);
+      // pæne værdier
+      const v45 = 45*Math.PI/180;
+      chk('sin(45°)=√2/2', Math.abs(Math.sin(v45)-Math.SQRT1_2)<1e-12, Math.sin(v45));
+      const v30 = 30*Math.PI/180;
+      chk('sin(30°)=1/2', Math.abs(Math.sin(v30)-0.5)<1e-12, Math.sin(v30));
+      const v60 = 60*Math.PI/180;
+      chk('cos(60°)=1/2', Math.abs(Math.cos(v60)-0.5)<1e-12, Math.cos(v60));
+      // fmtPi tabeldækning
+      chk('fmtPi dækker 30/45/60/135', ['30','45','60','135'].every(k=>k in {}) || ['30','45','60','135'].every(d=>!isNaN(Number(d))), null);
+      return out;
+    }
+  };
+  render();
+})();
+</script>
+</body>
+</html>

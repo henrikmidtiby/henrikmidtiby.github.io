@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>n·(x^(1/n) − 1) → ln(x)</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .ln-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .ln-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .ln-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .ln-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .ln-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.ln-grid{grid-template-columns:1fr}}
+
+  .ln-stage{position:relative;height:min(760px,80vh);min-height:500px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .ln-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .ln-stage canvas.grab{cursor:grab}
+  .ln-stage canvas.grabbing{cursor:grabbing}
+  .ln-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .ln-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:78px}
+  .ln-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .ln-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .ln-legend{position:absolute;bottom:12px;left:12px;font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap}
+  .ln-legend b{font-weight:800;margin-right:5px;display:inline-block}
+  .ln-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .ln-panel{display:flex;flex-direction:column;gap:11px}
+  .ln-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .ln-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ln-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .ln-row:first-child{margin-top:0}
+  .ln-row label{font-size:13.5px;color:var(--ink)}
+  .ln-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:70px;text-align:right}
+  .ln-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .ln-micro{margin-top:2px;font-size:11px;color:var(--faint);line-height:1.6}
+  .ln-micro code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#333;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:5px;padding:0 4px}
+
+  .ln-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .ln-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .ln-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .ln-switch:checked{background:var(--ink)}
+  .ln-switch:checked:after{transform:translateX(18px)}
+
+  .ln-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .ln-btn:hover{background:#f2f2f2}
+  .ln-div{border-top:1px solid var(--line);margin:12px -13px 6px}
+</style>
+</head>
+<body>
+<div class="ln-root" id="ln-root">
+  <div class="ln-head">
+    <div>
+      <div class="ln-title">n·(x<sup>1/n</sup> − 1) → ln(x)</div>
+      <div class="ln-sub">Jo større <b>n</b>, jo tættere ligger <code>n·(x<sup>1/n</sup> − 1)</code> på
+        <code>ln(x)</code>. Kurverne rører kun hinanden i x = 1.</div>
+    </div>
+  </div>
+
+  <div class="ln-grid">
+    <div class="ln-stage">
+      <canvas id="ln-canvas"></canvas>
+      <div class="ln-hud">
+        <div class="ln-chip"><span class="k">n</span><span class="v" id="ln-hn">–</span></div>
+      </div>
+      <div class="ln-legend">
+        <span><b>━</b>ln(x)</span>
+        <span><b>━</b>n·(x^(1/n) − 1)</span>
+      </div>
+      <div class="ln-hint">Træk i tom felt = panorér · hjul = zoom · dobbeltklik = zoom</div>
+    </div>
+
+    <div class="ln-panel">
+      <div class="ln-card">
+        <h3>Funktioner</h3>
+        <div class="ln-row"><label>n (heltal 1–100)</label><span class="ln-val" id="ln-nv">5</span></div>
+        <input class="ln-range" id="ln-ns" type="range" min="1" max="100" step="1" value="5" />
+        <div class="ln-micro"><code>f_n(x) = n·(x^(1/n) − 1) → ln(x)</code> for <code>n → ∞</code>
+          (fordi <code>e^t > 1 + t</code> med <code>t = ln(x)/n</code>).</div>
+      </div>
+
+      <div class="ln-card">
+        <h3>Visning</h3>
+        <div class="ln-row"><label>x-maks</label><span class="ln-val" id="ln-xmv">10.0</span></div>
+        <input class="ln-range" id="ln-xms" type="range" min="2" max="50" step="0.5" value="10" />
+        <div class="ln-row" style="margin-top:10px"><label>Zoom</label><span class="ln-val" id="ln-zv">1.00×</span></div>
+        <input class="ln-range" id="ln-zs" type="range" min="0.2" max="8" step="0.05" value="1" />
+        <button class="ln-btn" id="ln-fit">⌖ Tilpas visning</button>
+        <div style="border-top:1px solid var(--line);margin:12px -13px 6px"></div>
+        <div class="ln-toggle"><label>Gitter & akser</label><input type="checkbox" class="ln-switch" id="ln-cg" checked></div>
+        <div class="ln-toggle"><label>Udfyld mellem kurverne</label><input type="checkbox" class="ln-switch" id="ln-cf" checked></div>
+        <div class="ln-toggle"><label>Linjen x = 1</label><input type="checkbox" class="ln-switch" id="ln-c1" checked></div>
+        <div class="ln-toggle"><label>Etiketter</label><input type="checkbox" class="ln-switch" id="ln-cl" checked></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('ln-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK   = '#111111';
+  const INK2  = '#3a3a3a';
+  const MUTED = '#555555';
+  const FAINT = '#9a9a9a';
+  const GRID  = '#ececec';
+  const AXIS  = '#c2c2c2';
+  const FILL  = 'rgba(0,0,0,0.055)';
+  const FN    = '#555555';   // f_n curve
+  const LNC   = '#111111';   // ln curve
+
+  // ---- state ----
+  const state = {
+    n: 5,           // integer 1..100
+    xmax: 10,       // visible x-range [0, xmax]
+    showGrid: true, showFill: true, showX1: true, showLabels: true
+  };
+  const view = { cx: 5, cy: 1, zoom: 1 };
+
+  // ---- math (pure) ----
+  function f(n, x){ return n*Math.pow(x, 1/n) - n; }
+  function fExp(n, x){ return n*(Math.exp(Math.log(x)/n) - 1); }  // independent path
+  function lnx(x){ return Math.log(x); }
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function pill(txt,cx,cy,fs,bold){
+    fs = fs || 11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+
+  function viewScale(W,H){
+    const fit = Math.max(1, state.xmax)/2;
+    return (Math.min(W,H)/2 - 40)/fit * view.zoom;
+  }
+
+  // ---- render (synchronous) ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    const scale = viewScale(W,H);
+    const sx = wx => W/2 + (wx - view.cx)*scale;
+    const sy = wy => H/2 - (wy - view.cy)*scale;
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const half = Math.min(W,H)/(2*scale);
+    const uMin = view.cx - W/(2*scale), uMax = view.cx + W/(2*scale);
+    const vMin = view.cy - H/(2*scale), vMax = view.cy + H/(2*scale);
+
+    // grid + axes + tick labels
+    if(state.showGrid){
+      const raw = 55/scale, p = Math.pow(10, Math.floor(Math.log10(raw)));
+      const m = raw/p;
+      const step = (m<1.5?1:m<3.5?2:m<7.5?5:10)*p;
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=Math.floor(uMin/step)*step; u<=uMax; u+=step){
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(vMin)); ctx.lineTo(sx(u),sy(vMax)); ctx.stroke();
+      }
+      for(let v=Math.floor(vMin/step)*step; v<=vMax; v+=step){
+        ctx.beginPath(); ctx.moveTo(sx(uMin),sy(v)); ctx.lineTo(sx(uMax),sy(v)); ctx.stroke();
+      }
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(sx(uMin),sy(0)); ctx.lineTo(sx(uMax),sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(vMin)); ctx.lineTo(sx(0),sy(vMax)); ctx.stroke();
+      const dec = step<1 ? Math.min(2,-Math.floor(Math.log10(step))) : 0;
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      for(let u=Math.ceil(uMin/step)*step; u<=uMax; u+=step){
+        if(Math.abs(u)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(0)-5); ctx.lineTo(sx(u),sy(0)+5); ctx.stroke();
+        ctx.fillText(u.toFixed(dec), sx(u), sy(0)+8);
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      for(let v=Math.ceil(vMin/step)*step; v<=vMax; v+=step){
+        if(Math.abs(v)<step/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(sx(0)-5,sy(v)); ctx.lineTo(sx(0)+5,sy(v)); ctx.stroke();
+        ctx.fillText(v.toFixed(dec), sx(0)-9, sy(v));
+      }
+      ctx.fillStyle=MUTED; ctx.font='12px ui-sans-serif,system-ui,sans-serif';
+      ctx.fillText('x', sx(uMax)-4, sy(0)-14);
+      ctx.fillText('y', sx(0)+8, sy(vMax)+12);
+    }
+
+    // sample both curves once (visible domain, x > 0)
+    const xa = Math.max(uMin, 1e-6), xb = uMax;
+    const N = 700;
+    const xs = new Array(N+1), ysL = new Array(N+1), ysF = new Array(N+1);
+    for(let i=0;i<=N;i++){
+      const x = xa + (xb-xa)*i/N;
+      xs[i] = x; ysL[i] = lnx(x); ysF[i] = f(state.n, x);
+    }
+
+    // filled area between the curves (f_n is always the upper one)
+    if(state.showFill){
+      ctx.beginPath();
+      let started = false;
+      for(let i=0;i<=N;i++){
+        const X = sx(xs[i]), Y = sy(ysF[i]);
+        if(!isFinite(X)||!isFinite(Y)) continue;
+        if(!started){ ctx.moveTo(X,Y); started=true; } else ctx.lineTo(X,Y);
+      }
+      for(let i=N;i>=0;i--){
+        const X = sx(xs[i]), Y = sy(ysL[i]);
+        if(!isFinite(X)||!isFinite(Y)) continue;
+        ctx.lineTo(X,Y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = FILL; ctx.fill();
+    }
+
+    // marker line x = 1 (the only point where the curves meet)
+    if(state.showX1 && 1>=uMin && 1<=uMax){
+      ctx.setLineDash([3,5]); ctx.lineWidth=1.4; ctx.strokeStyle=FAINT;
+      line([sx(1),sy(vMin)],[sx(1),sy(vMax)],1.4,FAINT);
+      ctx.setLineDash([]);
+      if(state.showLabels) pill('x = 1', sx(1), sy(vMin)+16, 10.5);
+    }
+
+    // ln(x): solid black, drawn first
+    ctx.lineWidth=2.6; ctx.strokeStyle=LNC;
+    ctx.beginPath();
+    let started=false;
+    for(let i=0;i<=N;i++){
+      const X=sx(xs[i]), Y=sy(ysL[i]);
+      if(!isFinite(Y)){ started=false; continue; }
+      if(!started){ ctx.moveTo(X,Y); started=true; } else ctx.lineTo(X,Y);
+    }
+    ctx.stroke();
+
+    // f_n: dark gray, drawn on top (it is the curve that moves with n)
+    ctx.lineWidth=2.2; ctx.strokeStyle=FN;
+    ctx.beginPath();
+    started=false;
+    for(let i=0;i<=N;i++){
+      const X=sx(xs[i]), Y=sy(ysF[i]);
+      if(!isFinite(Y)){ started=false; continue; }
+      if(!started){ ctx.moveTo(X,Y); started=true; } else ctx.lineTo(X,Y);
+    }
+    ctx.stroke();
+
+    // curve labels at the right end, clamped into view
+    if(state.showLabels){
+      const endY = (ys, col, txt) => {
+        for(let i=N;i>=0;i--){
+          const Y=sy(ys[i]);
+          if(isFinite(Y) && Y>vMin+18 && Y<vMax-18){
+            pill(txt, Math.min(sx(xs[i])+2, W-70), Y + (col===FN?-14:14), 11.5, true);
+            return;
+          }
+        }
+      };
+      endY(ysL, LNC, 'ln(x)');
+      endY(ysF, FN, 'n·(x^(1/n) − 1)');
+    }
+
+    updReadout();
+  }
+
+  // ---- HUD + controls ----
+  const E = id => document.getElementById(id);
+  function updReadout(){
+    E('ln-hn').textContent = state.n;
+    E('ln-nv').textContent = state.n;
+    E('ln-ns').value = state.n;
+    E('ln-xmv').textContent = state.xmax.toFixed(1);
+    E('ln-xms').value = state.xmax;
+    E('ln-zv').textContent = view.zoom.toFixed(2)+'×';
+    E('ln-zs').value = view.zoom;
+  }
+
+  function bind(rangeId, fn){
+    E(rangeId).addEventListener('input', ev=>{
+      fn(parseFloat(ev.target.value));
+      render();
+    });
+  }
+  bind('ln-ns',  v=>{ state.n = Math.round(v); });
+  bind('ln-xms', v=>{
+    state.xmax = v;
+    view.cx = v/2;                          // re-center on the new window
+  });
+  bind('ln-zs',  v=>{ view.zoom = v; });
+  E('ln-cg').addEventListener('change',ev=>{ state.showGrid=ev.target.checked; render(); });
+  E('ln-cf').addEventListener('change',ev=>{ state.showFill=ev.target.checked; render(); });
+  E('ln-c1').addEventListener('change',ev=>{ state.showX1=ev.target.checked; render(); });
+  E('ln-cl').addEventListener('change',ev=>{ state.showLabels=ev.target.checked; render(); });
+
+  function syncZoomChip(){
+    E('ln-zs').value = view.zoom;
+    E('ln-zv').textContent = view.zoom.toFixed(2)+'×';
+  }
+  function fitView(){
+    view.zoom = 1;
+    view.cx = state.xmax/2; view.cy = 1;
+    syncZoomChip(); render();
+  }
+  function resetView(){ fitView(); }
+  E('ln-fit').addEventListener('click', fitView);
+
+  // ---- pointer: pan (drag anywhere) ----
+  // scale frozen at pointerdown (view extent adapts to xmax -> avoid feedback loop)
+  let panStart = null;
+  let dragScale = null;
+  canvas.addEventListener('pointerdown', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    panStart = { px: ev.clientX-rect.left, py: ev.clientY-rect.top,
+                 cx: view.cx, cy: view.cy, scale: viewScale(rect.width, rect.height) };
+    canvas.setPointerCapture(ev.pointerId);
+    canvas.classList.add('grabbing');
+    canvas.style.cursor = 'grabbing';
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!panStart) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX-rect.left, py = ev.clientY-rect.top;
+    view.cx = panStart.cx - (px-panStart.px)/panStart.scale;
+    view.cy = panStart.cy + (py-panStart.py)/panStart.scale;
+    render();
+  });
+  canvas.addEventListener('pointerup',   ()=>{ panStart=null; canvas.classList.remove('grabbing'); canvas.style.cursor=''; });
+  canvas.addEventListener('pointercancel',()=>{ panStart=null; canvas.classList.remove('grabbing'); canvas.style.cursor=''; });
+  canvas.addEventListener('pointerleave', ()=>{ canvas.style.cursor=''; });
+  canvas.addEventListener('dblclick', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const scale = viewScale(rect.width, rect.height);
+    const wx = view.cx + (ev.clientX-rect.left - rect.width/2)/scale;
+    const wy = view.cy - (ev.clientY-rect.top - rect.height/2)/scale;
+    view.zoom = Math.min(8, view.zoom*1.8);
+    view.cx = wx; view.cy = wy;
+    syncZoomChip(); render();
+  });
+  canvas.addEventListener('wheel', ev=>{
+    ev.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const scale0 = viewScale(rect.width, rect.height);
+    const wx = view.cx + (ev.clientX-rect.left - rect.width/2)/scale0;
+    const wy = view.cy - (ev.clientY-rect.top - rect.height/2)/scale0;
+    const f = ev.deltaY<0 ? 1.15 : 1/1.15;
+    const zoom2 = Math.min(8, Math.max(0.2, view.zoom*f));
+    const scale2 = scale0 * (zoom2/view.zoom);
+    view.zoom = zoom2;
+    // keep the world point under the cursor fixed
+    view.cx = wx - (ev.clientX-rect.left - rect.width/2)/scale2;
+    view.cy = wy + (ev.clientY-rect.top - rect.height/2)/scale2;
+    syncZoomChip(); render();
+  }, {passive:false});
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(ev.key==='0'||ev.key==='c') resetView();
+    if(ev.key==='f') fitView();
+    if(ev.key==='+'||ev.key==='='){ view.zoom=Math.min(8,view.zoom*1.3); syncZoomChip(); render(); }
+    if(ev.key==='-'){ view.zoom=Math.max(0.2,view.zoom/1.3); syncZoomChip(); render(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.wlnx = {
+    state, view, f, fExp, lnx,
+    setN(n){ state.n = Math.max(1, Math.min(100, Math.round(n))); render(); },
+    setXmax(v){ state.xmax = Math.max(2, Math.min(50, v)); view.cx = state.xmax/2; render(); },
+    setView(cx,cy,zoom){ view.cx=cx; view.cy=cy; view.zoom=zoom; syncZoomChip(); render(); },
+    fit: fitView, resetView, render,
+    selfTest(){
+      const n = state.n;
+      const xs = [0.25, 0.5, 1, 2, Math.E, 5, 9];
+      const rows = xs.map(x=>{
+        const a = f(n,x), b = fExp(n,x), l = lnx(x);
+        return { x:+x.toFixed(4), ln:+l.toFixed(9), fn:+a.toFixed(9), fnExp:+b.toFixed(9),
+                 diffPowVsExp:+Math.abs(a-b).toFixed(12), gap:+(a-l).toFixed(9) };
+      });
+      const maxDiff = Math.max(...rows.map(r=>r.diffPowVsExp));
+      // f_n(x) >= ln(x) with equality only at x = 1
+      const gapOk = rows.every(r => r.gap > -1e-9) &&
+                    Math.abs(f(n,1) - 0) < 1e-9 &&
+                    rows.filter(r=>Math.abs(r.x-1)>1e-6).every(r => r.gap > 1e-9);
+      // convergence: gap at x=2 strictly decreasing in n and heading to 0
+      const conv = [5,10,20,40,80].map(k=>f(k,2)-Math.LN2);
+      const convOk = conv.every((d,i)=>i===0 || d<conv[i-1]) && conv[conv.length-1] < conv[0]/2;
+      return { n, rows, maxDiffPowVsExp:+maxDiff.toFixed(12), gapOk, convOk,
+               gapsAt2: conv.map(d=>+d.toFixed(9)) };
+    }
+  };
+  resetView();
+})();
+</script>
+</body>
+</html>

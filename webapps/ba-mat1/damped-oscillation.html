@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dæmpet svingning · m·ẍ + c·ẋ + k·x = 0</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .do-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .do-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .do-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .do-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .do-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.do-grid{grid-template-columns:1fr}}
+
+  .do-stage{position:relative;height:min(820px,84vh);min-height:560px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .do-stage canvas{display:block;width:100%;height:100%}
+  .do-stage canvas.scrub{cursor:ew-resize}
+  .do-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .do-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:70px}
+  .do-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .do-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .do-chip .v.reg{font-size:12.5px}
+  .do-legend{position:absolute;bottom:12px;left:12px;font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:12px;flex-wrap:wrap}
+  .do-legend b{font-weight:800;margin-right:5px;display:inline-block}
+  .do-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .do-panel{display:flex;flex-direction:column;gap:11px}
+  .do-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .do-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700;
+    cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .do-card h3::after{content:"▾";font-size:10px;color:var(--faint)}
+  .do-card.do-collapsed h3{margin-bottom:0}
+  .do-card.do-collapsed h3::after{content:"▸"}
+  .do-card.do-collapsed > *:not(h3){display:none}
+  .do-card h3:hover{color:var(--ink)}
+  .do-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .do-row:first-child{margin-top:0}
+  .do-row label{font-size:13.5px;color:var(--ink)}
+  .do-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:70px;text-align:right}
+  .do-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .do-micro{margin-top:2px;font-size:11px;color:var(--faint);line-height:1.5}
+
+  .do-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .do-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .do-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .do-switch:checked{background:var(--ink)}
+  .do-switch:checked:after{transform:translateX(18px)}
+
+  .do-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .do-btn:hover{background:#f2f2f2}
+  .do-btnrow{display:flex;gap:8px}
+  .do-btnrow .do-btn{margin-top:4px}
+</style>
+</head>
+<body>
+<div class="do-root" id="do-root">
+  <div class="do-head">
+    <div>
+      <div class="do-title">Dæmpet svingning · m·ẍ + c·ẋ + k·x = 0</div>
+      <div class="do-sub">Massens udsving efter en startforstyrrelse: position <b>x(t)</b> og hastighed <b>v(t)</b> over tid,
+        samt banen i <b>faseplanen</b> (x horisontalt, v vertikalt). Juster massen, dæmpningen og fjederkonstanten —
+        og se hvordan systemet udvikler sig med afspilning eller tidsmarkøren.</div>
+    </div>
+  </div>
+
+  <div class="do-grid">
+    <div class="do-stage">
+      <canvas id="do-canvas"></canvas>
+      <div class="do-hud">
+        <div class="do-chip"><span class="k">ω₀ = √(k/m)</span><span class="v" id="do-hw">–</span></div>
+        <div class="do-chip"><span class="k">ζ = c/(2√(mk))</span><span class="v" id="do-hz">–</span></div>
+        <div class="do-chip"><span class="k">regime</span><span class="v reg" id="do-hr">–</span></div>
+        <div class="do-chip"><span class="k">t</span><span class="v" id="do-ht">–</span></div>
+      </div>
+      <div class="do-legend">
+        <span><b>──</b>x(t)</span>
+        <span><b>– –</b>v(t)</span>
+        <span><b>····</b>indhylling ±A·e^(−ζω₀t)</span>
+        <span id="do-lgph"><b>━━</b>kurve i faseplan</span>
+      </div>
+      <div class="do-hint">Træk i tidsplottet = flyt markør · mellemrum = afspil/pause</div>
+    </div>
+
+    <div class="do-panel">
+      <div class="do-card">
+        <h3>System</h3>
+        <div class="do-row"><label>Masse m (kg)</label><span class="do-val" id="do-mv">1.00</span></div>
+        <input class="do-range" id="do-ms" type="range" min="0.1" max="10" step="0.05" value="1" />
+        <div class="do-row" style="margin-top:10px"><label>Dæmpning c (N·s/m)</label><span class="do-val" id="do-cv">0.40</span></div>
+        <input class="do-range" id="do-cs" type="range" min="0" max="12" step="0.05" value="0.4" />
+        <div class="do-row" style="margin-top:10px"><label>Fjederkonstant k (N/m)</label><span class="do-val" id="do-kv">4.0</span></div>
+        <input class="do-range" id="do-ks" type="range" min="0.1" max="100" step="0.1" value="4" />
+        <div class="do-micro" id="do-regmicro">–</div>
+      </div>
+
+      <div class="do-card">
+        <h3>Startvilkår</h3>
+        <div class="do-row"><label>Startudsving x₀ (m)</label><span class="do-val" id="do-x0v">1.00</span></div>
+        <input class="do-range" id="do-x0s" type="range" min="-3" max="3" step="0.05" value="1" />
+        <div class="do-row" style="margin-top:10px"><label>Starthastighed v₀ (m/s)</label><span class="do-val" id="do-v0v">0.00</span></div>
+        <input class="do-range" id="do-v0s" type="range" min="-8" max="8" step="0.05" value="0" />
+        <div class="do-micro">Løsning: x(t) = e^(−at)·(x₀·cos ω_d t + ((v₀+a·x₀)/ω_d)·sin ω_d t), a = c/(2m)</div>
+      </div>
+
+      <div class="do-card">
+        <h3>Afspilning & tid</h3>
+        <button class="do-btn" id="do-play">▶ Afspil (mellemrum)</button>
+        <div class="do-row" style="margin-top:10px"><label>Tidsmarkør t (s)</label><span class="do-val" id="do-tv">0.00</span></div>
+        <input class="do-range" id="do-ts" type="range" min="0" max="12" step="0.01" value="0" />
+        <div class="do-row" style="margin-top:10px"><label>Tidsvindue T (s)</label><span class="do-val" id="do-Tv">12.0</span></div>
+        <input class="do-range" id="do-Ts" type="range" min="2" max="40" step="0.5" value="12" />
+      </div>
+
+      <div class="do-card">
+        <h3>Visning</h3>
+        <div class="do-toggle"><label>Faseplot (x, v)</label><input type="checkbox" class="do-switch" id="do-cp"></div>
+        <div class="do-toggle"><label>Position x(t)</label><input type="checkbox" class="do-switch" id="do-cx" checked></div>
+        <div class="do-toggle"><label>Hastighed v(t)</label><input type="checkbox" class="do-switch" id="do-cvv" checked></div>
+        <div class="do-toggle"><label>Indhylling ±A·e^(−ζω₀t)</label><input type="checkbox" class="do-switch" id="do-ce" checked></div>
+        <div class="do-toggle"><label>Retningpile i faseplan</label><input type="checkbox" class="do-switch" id="do-ca" checked></div>
+        <div class="do-toggle"><label>Gitter & akser</label><input type="checkbox" class="do-switch" id="do-cg" checked></div>
+        <button class="do-btn" id="do-reset">↺ Nulstil alle parametre</button>
+      </div>
+
+      <div class="do-card">
+        <h3>Værdier ved markøren</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums" id="do-curtable">
+          <tbody id="do-curtbody"></tbody>
+        </table>
+        <div class="do-micro">E = ½·m·v² + ½·k·x² (mekanisk energi)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('do-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK   = '#111111';
+  const INK2  = '#3a3a3a';
+  const MUTED = '#555555';
+  const FAINT = '#9a9a9a';
+  const GRID  = '#ececec';
+  const AXIS  = '#c2c2c2';
+
+  // ---- state ----
+  const DEFAULTS = { m:1, c:0.4, k:4, x0:1, v0:0, T:12 };
+  const state = {
+    m:1, c:0.4, k:4,          // physical parameters
+    x0:1, v0:0,               // initial conditions
+    T:12,                     // time window (s)
+    t:0,                      // time cursor (s)
+    playing:false,
+    showPhase:false, showX:true, showV:true, showEnv:true, showArrows:true, showGrid:true
+  };
+
+  // ---- physics (analytic solution of m·x'' + c·x' + k·x = 0, x(0)=x0, x'(0)=v0) ----
+  function derived(){
+    const a     = state.c/(2*state.m);          // decay rate
+    const w0    = Math.sqrt(state.k/state.m);   // undamped natural frequency
+    const zeta  = state.c/(2*Math.sqrt(state.m*state.k));
+    const D     = a*a - w0*w0;                  // discriminant
+    let regime, wd=null, r1=null, r2=null, s=null;
+    if(D < -1e-12){ regime='under'; wd=Math.sqrt(-D); }
+    else if(D > 1e-12){ regime='over'; s=Math.sqrt(D); r1=-a+s; r2=-a-s; }
+    else { regime='critical'; }
+    return { a, w0, zeta, wd, r1, r2, regime };
+  }
+  function xOf(t,d){
+    const a=d.a;
+    if(d.regime==='under'){
+      const B=(state.v0 + a*state.x0)/d.wd;
+      return Math.exp(-a*t)*(state.x0*Math.cos(d.wd*t) + B*Math.sin(d.wd*t));
+    }
+    if(d.regime==='critical'){
+      const C=state.v0 + a*state.x0;
+      return (state.x0 + C*t)*Math.exp(-a*t);
+    }
+    const r1=d.r1, r2=d.r2;
+    const A=(state.v0 - r2*state.x0)/(r1-r2);
+    const B=(r1*state.x0 - state.v0)/(r1-r2);
+    return A*Math.exp(r1*t) + B*Math.exp(r2*t);
+  }
+  function vOf(t,d){
+    const a=d.a;
+    if(d.regime==='under'){
+      const B=(state.v0 + a*state.x0)/d.wd;
+      const w=d.wd;
+      return Math.exp(-a*t)*((B*w - a*state.x0)*Math.cos(w*t) - (a*B + state.x0*w)*Math.sin(w*t));
+    }
+    if(d.regime==='critical'){
+      const C=state.v0 + a*state.x0;
+      return Math.exp(-a*t)*(C*(1 - a*t) - a*state.x0);
+    }
+    const r1=d.r1, r2=d.r2;
+    const A=(state.v0 - r2*state.x0)/(r1-r2);
+    const B=(r1*state.x0 - state.v0)/(r1-r2);
+    return A*r1*Math.exp(r1*t) + B*r2*Math.exp(r2*t);
+  }
+  function envA(d){   // envelope amplitude for underdamped case
+    const a=d.a;
+    return Math.hypot(state.x0, (state.v0 + a*state.x0)/d.wd);
+  }
+  function energy(x,v){ return 0.5*state.m*v*v + 0.5*state.k*x*x; }
+
+  // RK4 numeric integration — independent path for selfTest cross-check
+  function rk4(nSteps){
+    const h = state.T/nSteps;
+    const f = (x,v)=>[ v, -(state.c*v + state.k*x)/state.m ];
+    let x=state.x0, v=state.v0;
+    const out=[{t:0,x,v}];
+    for(let i=0;i<nSteps;i++){
+      const k1=f(x,v);
+      const k2=f(x+h/2*k1[0], v+h/2*k1[1]);
+      const k3=f(x+h/2*k2[0], v+h/2*k2[1]);
+      const k4=f(x+h*k3[0], v+h*k3[1]);
+      x += h/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+      v += h/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+      out.push({t:+((i+1)*h).toFixed(10), x, v});
+    }
+    return out;
+  }
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function pill(txt,cx,cy,fs,bold,align){
+    fs = fs || 11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+  function arrowHead(x,y,ang,len,color){
+    ctx.strokeStyle=color; ctx.lineWidth=1.4; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(x - len*Math.cos(ang-0.42), y - len*Math.sin(ang-0.42));
+    ctx.lineTo(x,y);
+    ctx.lineTo(x - len*Math.cos(ang+0.42), y - len*Math.sin(ang+0.42));
+    ctx.stroke();
+  }
+  function niceStep(raw){
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const m = raw/p;
+    return (m<1.5?1:m<3.5?2:m<7.5?5:10)*p;
+  }
+
+  // ---- layout of the two panels ----
+  function layout(W,H){
+    const padL=56, padR=18;
+    // with the phase plot hidden the time series gets the full canvas height
+    const splitY = state.showPhase ? Math.round(H*0.58) : H-34;
+    return {
+      padL, padR, splitY,
+      top:    { x0:padL, x1:W-padR, y0:28, y1:splitY-16 },
+      bottom: { x0:padL, x1:W-padR, y0:splitY+16, y1:H-34 }
+    };
+  }
+
+  // ---- render (synchronous) ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const d = derived();
+    const L = layout(W,H);
+
+    // sample the solution over [0,T]
+    const N = 700;
+    const xs=new Array(N+1), vs=new Array(N+1), ts=new Array(N+1);
+    let maxX=0, maxV=0;
+    for(let i=0;i<=N;i++){
+      const t = state.T*i/N;
+      const x = xOf(t,d), v = vOf(t,d);
+      ts[i]=t; xs[i]=x; vs[i]=v;
+      maxX=Math.max(maxX,Math.abs(x)); maxV=Math.max(maxV,Math.abs(v));
+    }
+    // time-panel y extent from the INITIAL CONDITIONS only (stable when k/m/c change);
+    // curves that grow beyond it are simply clipped by the panel
+    const yMax   = Math.max(0.4, Math.max(Math.abs(state.x0), Math.abs(state.v0))*1.15);
+    const phXmax = Math.max(0.4, maxX*1.15);
+    const phVmax = Math.max(0.4, maxV*1.15);
+
+    // ---------- time panel ----------
+    const tp=L.top;
+    const tx = t => tp.x0 + (t/state.T)*(tp.x1-tp.x0);
+    const ty = y => (tp.y0+tp.y1)/2 - (y/yMax)*((tp.y1-tp.y0)/2);
+
+    if(state.showGrid){
+      const stepT = niceStep(state.T/8);
+      const stepY = niceStep(yMax/4);
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=0; u<=state.T+1e-9; u+=stepT){
+        ctx.beginPath(); ctx.moveTo(tx(u),tp.y0); ctx.lineTo(tx(u),tp.y1); ctx.stroke();
+      }
+      for(let y=-yMax; y<=yMax+1e-9; y+=stepY){
+        ctx.beginPath(); ctx.moveTo(tp.x0,ty(y)); ctx.lineTo(tp.x1,ty(y)); ctx.stroke();
+      }
+      // axes + ticks
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      line([tp.x0,ty(0)],[tp.x1,ty(0)],1.5,AXIS);
+      line([tp.x0,tp.y0],[tp.x0,tp.y1],1.5,AXIS);
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const decT = stepT<1 ? Math.min(2,-Math.floor(Math.log10(stepT))) : 0;
+      for(let u=0; u<=state.T+1e-9; u+=stepT){
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(tx(u),ty(0)-4); ctx.lineTo(tx(u),ty(0)+4); ctx.stroke();
+        // labels along the BOTTOM edge of the panel — away from the curves
+        ctx.fillText(u.toFixed(decT), tx(u), tp.y1+4);
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      const decY = stepY<1 ? Math.min(2,-Math.floor(Math.log10(stepY))) : 0;
+      // zero-anchored grid so tick labels around 0 are symmetric (…, 1, 0.5, 0, -0.5, …)
+      const yStart = Math.ceil((-yMax+1e-9)/stepY)*stepY;
+      for(let y=yStart; y<=yMax+1e-9; y+=stepY){
+        if(Math.abs(y)<stepY/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(tp.x0-4,ty(y)); ctx.lineTo(tp.x0+4,ty(y)); ctx.stroke();
+        ctx.fillText(y.toFixed(decY), tp.x0-8, ty(y));
+      }
+      ctx.fillText('0', tp.x0-8, ty(0));
+      ctx.fillStyle=MUTED; ctx.font='11px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText('t (s)', tp.x1-2, tp.y0-14);
+      ctx.textAlign='left';
+      ctx.fillText('m', tp.x0-40, tp.y0+8);
+    }
+
+    // clip curves/cursor to the time panel so overshoot (v beyond ±yMax) is cut cleanly
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(tp.x0-1, tp.y0, tp.x1-tp.x0+2, tp.y1-tp.y0);
+    ctx.clip();
+
+    // envelope ±A e^{-a t} (underdamped only)
+    if(state.showEnv && d.regime==='under'){
+      const A=envA(d);
+      ctx.setLineDash([2,4]); ctx.lineWidth=1.3; ctx.strokeStyle=FAINT;
+      ctx.beginPath();
+      for(let i=0;i<=N;i++){
+        const e=A*Math.exp(-d.a*ts[i]);
+        if(i===0) ctx.moveTo(tx(0),ty(e)); else ctx.lineTo(tx(ts[i]),ty(e));
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      for(let i=0;i<=N;i++){
+        const e=-A*Math.exp(-d.a*ts[i]);
+        if(i===0) ctx.moveTo(tx(0),ty(e)); else ctx.lineTo(tx(ts[i]),ty(e));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // x(t) solid ink, v(t) dashed dark gray
+    function drawCurve(arr,dash,lw,color){
+      ctx.setLineDash(dash); ctx.lineWidth=lw; ctx.strokeStyle=color;
+      ctx.beginPath();
+      for(let i=0;i<=N;i++){
+        const X=tx(ts[i]), Y=ty(arr[i]);
+        if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    if(state.showV) drawCurve(vs,[7,5],1.8,INK2);
+    if(state.showX) drawCurve(xs,[],2.6,INK);
+
+    // panel title (top-right, clear of the HUD chips at top-left)
+    pill('x(t) og v(t) over tid', tp.x1-140, tp.y0-12, 11.5, true, 'center');
+
+    const iCur = Math.min(N, Math.max(0, Math.round(state.t/state.T*N)));
+
+    const Xc=tx(state.t);
+    ctx.setLineDash([3,4]); ctx.lineWidth=1.4; ctx.strokeStyle=FAINT;
+    line([Xc,tp.y0],[Xc,tp.y1],1.4,FAINT);
+    ctx.setLineDash([]);
+    if(state.showX) circle(Xc,ty(xOf(state.t,d)),5.5,'#fff',INK,2.4);
+    if(state.showV) circle(Xc,ty(vOf(state.t,d)),5.5,'#fff',INK2,2.4);
+
+    ctx.restore();   // end time-panel clip
+
+    // ---------- phase panel ----------
+    if(state.showPhase){
+    const bp=L.bottom;
+    const px = x => (bp.x0+bp.x1)/2 + (x/phXmax)*((bp.x1-bp.x0)/2);
+    const py = v => (bp.y0+bp.y1)/2 - (v/phVmax)*((bp.y1-bp.y0)/2);
+
+    if(state.showGrid){
+      const stepX = niceStep(phXmax/4);
+      const stepV = niceStep(phVmax/4);
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=-phXmax; u<=phXmax+1e-9; u+=stepX){
+        ctx.beginPath(); ctx.moveTo(px(u),bp.y0); ctx.lineTo(px(u),bp.y1); ctx.stroke();
+      }
+      for(let y=-phVmax; y<=phVmax+1e-9; y+=stepV){
+        ctx.beginPath(); ctx.moveTo(bp.x0,py(y)); ctx.lineTo(bp.x1,py(y)); ctx.stroke();
+      }
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      line([bp.x0,py(0)],[bp.x1,py(0)],1.5,AXIS);
+      line([px(0),bp.y0],[px(0),bp.y1],1.5,AXIS);
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const decX = stepX<1 ? Math.min(2,-Math.floor(Math.log10(stepX))) : 0;
+      const xStart = Math.ceil((-phXmax+1e-9)/stepX)*stepX;
+      for(let u=xStart; u<=phXmax+1e-9; u+=stepX){
+        if(Math.abs(u)<stepX/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(px(u),py(0)-4); ctx.lineTo(px(u),py(0)+4); ctx.stroke();
+        ctx.fillText(u.toFixed(decX), px(u), py(0)+7);
+      }
+      ctx.fillText('0', px(0), py(0)+7);
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      const decV = stepV<1 ? Math.min(2,-Math.floor(Math.log10(stepV))) : 0;
+      const vStart = Math.ceil((-phVmax+1e-9)/stepV)*stepV;
+      for(let y=vStart; y<=phVmax+1e-9; y+=stepV){
+        if(Math.abs(y)<stepV/2) continue;
+        ctx.strokeStyle=AXIS;
+        ctx.beginPath(); ctx.moveTo(px(0)-4,py(y)); ctx.lineTo(px(0)+4,py(y)); ctx.stroke();
+        ctx.fillText(y.toFixed(decV), px(0)-8, py(y));
+      }
+      ctx.fillText('0', px(0)-8, py(0));
+      ctx.fillStyle=MUTED; ctx.font='11.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText('x (m)', bp.x1-2, py(0)+16);
+      ctx.textAlign='left';
+      ctx.fillText('v (m/s)', px(0)+8, bp.y0+4);
+      pill('faseplan (x, v)', bp.x1-84, bp.y0+2, 11.5, true, 'center');
+    }
+
+    // trajectory: start marker, direction arrows, ink curve, cursor point
+    ctx.lineWidth=2.2; ctx.strokeStyle=INK;
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const X=px(xs[i]), Y=py(vs[i]);
+      if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y);
+    }
+    ctx.stroke();
+
+    if(state.showArrows){
+      const M=9;   // arrows every M samples
+      for(let i=M; i<N-M; i+=M){
+        const dx = px(xs[i+1])-px(xs[i-1]);
+        const dy = py(vs[i+1])-py(vs[i-1]);
+        const len = Math.hypot(dx,dy);
+        if(len<3) continue;
+        arrowHead(px(xs[i]), py(vs[i]), Math.atan2(dy,dx), 6, MUTED);
+      }
+    }
+
+    // start point (t=0): open circle + label
+    circle(px(xs[0]),py(vs[0]),6,'#fff',INK,2.4);
+    circle(px(xs[0]),py(vs[0]),2,INK);
+    pill('t=0', px(xs[0])+26, py(vs[0])-14, 10.5, true);
+
+    // current cursor point on trajectory + on both curves
+    const cxp = px(xs[iCur]), cyp = py(vs[iCur]);
+    circle(cxp,cyp,7,'#fff',INK,3);
+    circle(cxp,cyp,2.8,INK);
+    }   // end showPhase
+
+    // separator between panels
+    if(state.showPhase) line([L.padL-38,L.splitY],[W-6,L.splitY],1,GRID);
+
+    updReadout(d, xs[iCur], vs[iCur]);
+  }
+
+  // ---- HUD + readouts ----
+  const E = id => document.getElementById(id);
+  const REGTXT = { under:'underdæmpet', critical:'kritisk dæmpet', over:'overdæmpet' };
+  function updReadout(d,x,v){
+    E('do-hw').textContent = d.w0.toFixed(3)+' rad/s';
+    E('do-hz').textContent = d.zeta.toFixed(3);
+    E('do-hr').textContent = REGTXT[d.regime];
+    E('do-ht').textContent = state.t.toFixed(2)+' s';
+    E('do-ms').value=state.m;  E('do-mv').textContent=state.m.toFixed(2);
+    E('do-cs').value=state.c;  E('do-cv').textContent=state.c.toFixed(2);
+    E('do-ks').value=state.k;  E('do-kv').textContent=state.k.toFixed(1);
+    E('do-x0s').value=state.x0; E('do-x0v').textContent=state.x0.toFixed(2);
+    E('do-v0s').value=state.v0; E('do-v0v').textContent=state.v0.toFixed(2);
+    E('do-Ts').value=state.T;  E('do-Tv').textContent=state.T.toFixed(1);
+    E('do-ts').max=state.T;    E('do-ts').value=state.t; E('do-tv').textContent=state.t.toFixed(2);
+
+    let micro;
+    if(d.regime==='under'){
+      const B=(state.v0 + d.a*state.x0)/d.wd;
+      const sgn = B<0 ? '− ' : '+ ';
+      micro = 'Underdæmpet: x(t) = e^(−'+d.a.toFixed(3)+'·t)·('+state.x0.toFixed(3)+'·cos '+d.wd.toFixed(3)+'·t '+sgn+Math.abs(B).toFixed(3)+'·sin '+d.wd.toFixed(3)+'·t) · ' +
+              'periode T_d = '+(2*Math.PI/d.wd).toFixed(2)+' s · afklinging 1/(ζω₀) = '+(1/(d.zeta*d.w0)).toFixed(2)+' s';
+    } else if(d.regime==='critical'){
+      micro = 'Kritisk dæmpet (ζ = 1): hurtigste afklinging uden oversving · x(t) = (x₀ + (v₀+a·x₀)·t)·e^(−'+d.a.toFixed(3)+'·t)';
+    } else {
+      micro = 'Overdæmpet: to reelle røder λ₁ = '+d.r1.toFixed(3)+' og λ₂ = '+d.r2.toFixed(3)+' · langsom dominerer til sidst';
+    }
+    E('do-regmicro').textContent = micro;
+
+    const cur = state.t.toFixed(2)+' s';
+    E('do-curtbody').innerHTML =
+      '<tr><td>t</td><td style="text-align:right;font-weight:700">'+cur+'</td></tr>'+
+      '<tr><td>x(t)</td><td style="text-align:right;font-weight:700">'+x.toFixed(4)+' m</td></tr>'+
+      '<tr><td>v(t)</td><td style="text-align:right;font-weight:700">'+v.toFixed(4)+' m/s</td></tr>'+
+      '<tr><td>E(t)</td><td style="text-align:right;font-weight:700">'+energy(x,v).toFixed(4)+' J</td></tr>';
+  }
+
+  // ---- foldable cards: click the header to collapse/expand ----
+  document.querySelectorAll('.do-card h3').forEach(h3=>{
+    h3.addEventListener('click', ()=>{ h3.parentElement.classList.toggle('do-collapsed'); });
+  });
+
+  // ---- controls ----
+  function bind(rangeId, fn){
+    E(rangeId).addEventListener('input', ev=>{
+      fn(parseFloat(ev.target.value));
+      render();
+    });
+  }
+  bind('do-ms',  v=>{ state.m=v; });
+  bind('do-cs',  v=>{ state.c=v; });
+  bind('do-ks',  v=>{ state.k=v; });
+  bind('do-x0s', v=>{ state.x0=v; });
+  bind('do-v0s', v=>{ state.v0=v; });
+  bind('do-Ts',  v=>{ state.T=v; if(state.t>state.T) state.t=state.T; });
+  bind('do-ts',  v=>{ state.t=v; setPlaying(false); });
+  E('do-cp').addEventListener('change',ev=>{ state.showPhase=ev.target.checked;
+    E('do-lgph').style.display = state.showPhase ? '' : 'none'; render(); });
+  E('do-cx').addEventListener('change',ev=>{ state.showX=ev.target.checked; render(); });
+  E('do-cvv').addEventListener('change',ev=>{ state.showV=ev.target.checked; render(); });
+  E('do-ce').addEventListener('change',ev=>{ state.showEnv=ev.target.checked; render(); });
+  E('do-ca').addEventListener('change',ev=>{ state.showArrows=ev.target.checked; render(); });
+  E('do-cg').addEventListener('change',ev=>{ state.showGrid=ev.target.checked; render(); });
+
+  function setPlaying(p){
+    state.playing=p;
+    E('do-play').textContent = p ? '⏸ Pause (mellemrum)' : '▶ Afspil (mellemrum)';
+  }
+  function togglePlay(){ setPlaying(!state.playing); }
+  E('do-play').addEventListener('click', togglePlay);
+  function resetAll(){
+    Object.assign(state, DEFAULTS, { t:0 });
+    setPlaying(false);
+    render();
+  }
+  E('do-reset').addEventListener('click', resetAll);
+
+  // ---- pointer: scrub the time cursor on the top panel ----
+  let scrubbing=false;
+  function timeAtPx(px,py){
+    const rect = canvas.getBoundingClientRect();
+    const W=rect.width, H=rect.height;
+    const L=layout(W,H);
+    if(py < L.top.y0-10 || py > L.top.y1+10) return null;
+    const frac = (px - L.top.x0)/(L.top.x1 - L.top.x0);
+    if(frac<-0.05 || frac>1.05) return null;
+    return Math.min(state.T, Math.max(0, frac*state.T));
+  }
+  canvas.addEventListener('pointerdown', ev=>{
+    const rect = canvas.getBoundingClientRect();
+    const t = timeAtPx(ev.clientX-rect.left, ev.clientY-rect.top);
+    if(t!==null){
+      scrubbing=true;
+      canvas.setPointerCapture(ev.pointerId);
+      setPlaying(false);
+      state.t=t; render();
+    }
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!scrubbing) return;
+    const rect = canvas.getBoundingClientRect();
+    const t = timeAtPx(ev.clientX-rect.left, ev.clientY-rect.top);
+    if(t!==null){ state.t=t; render(); }
+  });
+  canvas.addEventListener('pointerup',   ()=>{ scrubbing=false; });
+  canvas.addEventListener('pointercancel',()=>{ scrubbing=false; });
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(ev.code==='Space'){ ev.preventDefault(); togglePlay(); }
+    if(ev.key==='r'||ev.key==='R') resetAll();
+    if(ev.key==='ArrowRight'){ setPlaying(false); state.t=Math.min(state.T,state.t+state.T/120); render(); }
+    if(ev.key==='ArrowLeft'){  setPlaying(false); state.t=Math.max(0,state.t-state.T/120); render(); }
+  });
+
+  // ---- animation loop (decoupled from render — rAF only advances the cursor) ----
+  let lastTs=null;
+  function loop(ts){
+    if(state.playing){
+      if(lastTs!==null){
+        state.t += (ts-lastTs)/1000;
+        if(state.t>state.T) state.t=0;    // loop
+        render();
+      }
+      lastTs=ts;
+    } else {
+      lastTs=null;
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---- boot + API ----
+  E('do-lgph').style.display = state.showPhase ? '' : 'none';
+  resize();
+  window.dosc = {
+    state, derived, xOf, vOf, rk4, energy, envA,
+    setM(m){ state.m=Math.max(0.1,m); render(); },
+    setC(c){ state.c=Math.max(0,c); render(); },
+    setK(k){ state.k=Math.max(0.1,k); render(); },
+    setIC(x0,v0){ state.x0=x0; state.v0=v0; render(); },
+    setPhase(p){ state.showPhase=!!p; E('do-cp').checked=!!p; render(); },
+    setT(T){ state.T=Math.max(2,T); if(state.t>state.T) state.t=state.T; render(); },
+    setTime(t){ state.t=Math.min(state.T,Math.max(0,t)); setPlaying(false); render(); },
+    play(){ setPlaying(true); },
+    pause(){ setPlaying(false); },
+    togglePlay(){ togglePlay(); },
+    reset(){ resetAll(); },
+    render,
+    selfTest(){
+      const d = derived();
+      // analytic vs RK4 at sample times
+      const num = rk4(4000);
+      let maxErrX=0, maxErrV=0;
+      const n = num.length;
+      const idxs = [0, Math.floor(n*0.2), Math.floor(n*0.4), Math.floor(n*0.6), Math.floor(n*0.8), n-1];
+      const rows = [];
+      for(const i of idxs){
+        const t=num[i].t;
+        const ax=xOf(t,d), av=vOf(t,d);
+        const ex=Math.abs(ax-num[i].x), ev=Math.abs(av-num[i].v);
+        maxErrX=Math.max(maxErrX,ex); maxErrV=Math.max(maxErrV,ev);
+        rows.push({ t:+t.toFixed(3), analyticX:+ax.toFixed(8), rk4X:+num[i].x.toFixed(8),
+                    analyticV:+av.toFixed(8), rk4V:+num[i].v.toFixed(8),
+                    errX:+ex.toExponential(3), errV:+ev.toExponential(3) });
+      }
+      // identities at t=0
+      const icOk = Math.abs(xOf(0,d)-state.x0)<1e-12 && Math.abs(vOf(0,d)-state.v0)<1e-12;
+      // energy must be non-increasing (c>=0) along the solution
+      let energyOk=true, prevE=energy(state.x0,state.v0);
+      for(let i=1;i<=200;i++){
+        const t=state.T*i/200, x=xOf(t,d), v=vOf(t,d);
+        const e=energy(x,v);
+        if(e > prevE + 1e-9*Math.max(1,prevE)) { energyOk=false; break; }
+        prevE=e;
+      }
+      return {
+        regime:d.regime, zeta:+d.zeta.toFixed(4), omega0:+d.w0.toFixed(4),
+        wd:d.wd===null?null:+d.wd.toFixed(4),
+        initialConditionsOk:icOk, energyNonIncreasing:energyOk,
+        maxErrXAnalyticVsRK4:+maxErrX.toExponential(3),
+        maxErrVAnalyticVsRK4:+maxErrV.toExponential(3),
+        rows
+      };
+    }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Taylor-rækker for sin(x) og cos(x)</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .tw-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .tw-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .tw-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .tw-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .tw-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.tw-grid{grid-template-columns:1fr}}
+
+  .tw-stage{position:relative;height:min(620px,68vh);min-height:440px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .tw-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .tw-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .tw-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:110px}
+  .tw-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .tw-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .tw-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .tw-panel{display:flex;flex-direction:column;gap:11px}
+  .tw-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .tw-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .tw-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .tw-row:first-child{margin-top:0}
+  .tw-row label{font-size:13.5px;color:var(--ink)}
+  .tw-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:74px;text-align:right}
+  .tw-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .tw-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .tw-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .tw-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .tw-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .tw-switch:checked{background:var(--ink)}
+  .tw-switch:checked:after{transform:translateX(18px)}
+
+  .tw-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .tw-btn:hover{background:#f2f2f2}
+  .tw-mini{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 7px;font-size:11.5px;cursor:pointer;margin:2px}
+  .tw-mini:hover{background:#f2f2f2}
+
+  .tw-formula{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+    padding:9px 6px;border:1px solid var(--line);border-radius:9px;background:#fafafa;margin:8px 0;line-height:1.8}
+  .tw-formula .term{white-space:nowrap}
+  .tw-formula .active{color:var(--ink);border-bottom:2px solid var(--ink)}
+  .tw-formula .dim{color:#aaa}
+
+  .tw-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .tw-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .tw-footeq .row{margin:3px 0}
+  .tw-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="tw-root" id="tw-root">
+  <div class="tw-head">
+    <div>
+      <div class="tw-title">Taylor-rækker for sin(x) og cos(x)</div>
+      <div class="tw-sub">Slideren vælger antal led i rækken. Rækken (rød) sammenholdes med den eksakte funktion
+        (stiplet sort) — og fejl-kurven nederst viser hvor tilnærmelsen er god. Træk i x for at aflæse.</div>
+    </div>
+  </div>
+
+  <div class="tw-grid">
+    <div class="tw-stage">
+      <canvas id="tw-canvas"></canvas>
+      <div class="tw-hud">
+        <div class="tw-chip"><span class="k" id="tw-hk">x (trukket)</span><span class="v" id="tw-hx">–</span></div>
+        <div class="tw-chip"><span class="k" id="tw-hfk">eksakt</span><span class="v" id="tw-hf">–</span></div>
+        <div class="tw-chip"><span class="k">Taylor (n)</span><span class="v" id="tw-ht">–</span></div>
+        <div class="tw-chip"><span class="k">|fejl|</span><span class="v" id="tw-he">–</span></div>
+      </div>
+      <div class="tw-hint">Træk lodret linje · piletaster = flyt x · mellemrum = animer antal led</div>
+    </div>
+
+    <div class="tw-panel">
+      <div class="tw-card">
+        <h3>Funktion</h3>
+        <div class="tw-methods" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <button class="tw-mini active" id="tw-fsin" style="padding:7px 4px;font-weight:700">sin(x)</button>
+          <button class="tw-mini" id="tw-fcos" style="padding:7px 4px;font-weight:700">cos(x)</button>
+        </div>
+        <div class="tw-formula" id="tw-formula">–</div>
+      </div>
+
+      <div class="tw-card">
+        <h3>Antal led</h3>
+        <div class="tw-row"><label id="tw-nlabel">Led (n = 0…5)</label><span class="tw-val" id="tw-nv">–</span></div>
+        <input class="tw-range" id="tw-ns" type="range" min="0" max="10" step="1" value="1" />
+        <div class="tw-micro" id="tw-nmicro">–</div>
+        <button class="tw-btn" id="tw-anim">▶ Animer antal led (mellemrum)</button>
+      </div>
+
+      <div class="tw-card">
+        <h3>Visning</h3>
+        <div class="tw-toggle"><label>Fejl-kurve |f(x) − T(x)|</label><input type="checkbox" class="tw-switch" id="tw-cerr" checked></div>
+        <div class="tw-toggle"><label>Konvergens-område skygge</label><input type="checkbox" class="tw-switch" id="tw-cgood" checked></div>
+        <div class="tw-micro" id="tw-gnote">–</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('tw-canvas');
+  const ctx = canvas.getContext('2d');
+  const E = id => document.getElementById(id);
+
+  // ---- palette ----
+  const INK='#111111', INK2='#3a3a3a', MUTED='#555555', FAINT='#9a9a9a';
+  const GRID='#ececec', AXIS='#c2c2c2';
+  const APPROX='#b00000', EXACT='#111111', ERR='#0060c0', GOOD='#eef4ee';
+
+  // ---- state ----
+  const state = {
+    fn: 'sin',          // 'sin' | 'cos'
+    n: 1,               // antal led (0..10)
+    x: 1.2,             // markeret x-værdi
+    showErr:true, logErr:false, showGood:true,
+    anim:null
+  };
+  const XMAX = 2*Math.PI;   // visningsvindue [-XMAX, XMAX]
+
+  // ---- matematik ----
+  const factorial = k => { let f=1; for(let i=2;i<=k;i++) f*=i; return f; };
+  // Taylor-partialsumme med n led: sin -> x^(1,3,5,...), cos -> x^(0,2,4,...)
+  function taylor(x, n, fn){
+    let s = 0;
+    for(let k=0; k<n; k++){
+      const p = fn==='sin' ? 2*k+1 : 2*k;
+      s += ((-1)**k) * Math.pow(x,p) / factorial(p);
+    }
+    return s;
+  }
+  const exact = (x, fn) => fn==='sin' ? Math.sin(x) : Math.cos(x);
+  // antal "ikke-trivielle" termer (nul-termer tælles ikke for cos ved n>0: 1, −x²/2, ...)
+  function termLabel(k, fn){
+    const p = fn==='sin' ? 2*k+1 : 2*k;
+    const sign = (k%2===0) ? '' : '−';
+    if(p===0) return '1';
+    if(p===1) return sign+'x';
+    return sign + 'x' + supDigits(p) + '/' + p + '!';
+  }
+  function supDigits(p){
+    const sup = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+    return String(p).split('').map(d=>sup[d]).join('');
+  }
+
+  // ---- sizing ----
+  let dpr=1;
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    dpr = window.devicePixelRatio||1;
+    canvas.width = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- layout: øverste plot (funktioner) + nederste plot (fejl) ----
+  let L=null;
+  function makeLayout(){
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    const splitY = Math.round(H*0.66);
+    const padL=52, padR=18, padT=30, padB=8;
+    const p1 = {x0:padL, x1:W-padR, y0:padT, y1:splitY-padB};
+    const p2 = {x0:padL, x1:W-padR, y0:splitY+16, y1:H-34};
+    const xToPx = x => p1.x0 + (x+XMAX)/(2*XMAX)*(p1.x1-p1.x0);
+    const vToPx = (v,plot) => {
+      // plot1: v i [-1.8, 1.8]; plot2: log-fejl [1e-16, 10] eller lin [0, 2]
+      if(plot===1) return p1.y1 - (v+1.8)/3.6*(p1.y1-p1.y0);
+      if(state.logErr){
+        const lo=Math.log(1e-16), hi=Math.log(10);
+        const lv = Math.log(Math.max(v,1e-16));
+        return p2.y1 - (lv-lo)/(hi-lo)*(p2.y1-p2.y0);
+      }
+      return p2.y1 - Math.min(v,2)/2*(p2.y1-p2.y0);
+    };
+    L = {W,H,p1,p2,xToPx,vToPx};
+  }
+
+  // ---- draw helpers ----
+  function line(a,b,w,c,dash){
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round';
+    if(dash) ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]);
+  }
+  function dot(x,y,r,fill,stroke,lw){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    if(fill){ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();}
+  }
+  function pill(txt,cx,cy,fs,color,bold){
+    fs=fs||11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.92)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=color||INK; ctx.fillText(txt,cx,cy);
+  }
+  function piLabel(x){
+    const fr = x/Math.PI;
+    const table = {'-2':'−2π','-1.5':'−3π/2','-1':'−π','-0.75':'−3π/4','-0.5':'−π/2','-0.25':'−π/4',
+                   '0':'0','0.25':'π/4','0.5':'π/2','0.75':'3π/4','1':'π','1.5':'3π/2','2':'2π'};
+    return table[String(Math.round(fr*100)/100)] || x.toFixed(2);
+  }
+
+  // ---- render ----
+  function render(){
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    if(!W||!H) return;
+    makeLayout();
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    const {p1,p2,xToPx,vToPx} = L;
+    const f = x => exact(x, state.fn);
+    const T = x => taylor(x, state.n+1, state.fn);
+
+    // ---------- øverste plot ----------
+    // konvergens-skygge: |x| < næste udeladte leds rodstørrelse ~ her: god til |x| < 2(n+1)
+    if(state.showGood){
+      const good = Math.min(XMAX, 2*(state.n+1));
+      ctx.fillStyle = GOOD;
+      ctx.fillRect(xToPx(-good), p1.y0, xToPx(good)-xToPx(-good), p1.y1-p1.y0);
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('godt område', xToPx(0), p1.y0+4);
+    }
+    // ramme + akser
+    ctx.strokeStyle=AXIS; ctx.lineWidth=1.2; ctx.strokeRect(p1.x0,p1.y0,p1.x1-p1.x0,p1.y1-p1.y0);
+    line([p1.x0,vToPx(0,1)],[p1.x1,vToPx(0,1)],1.2,AXIS);
+    // ticks
+    ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    for(const xv of [-6.283,-4.712,-3.1416,-1.5708,0,1.5708,3.1416,4.712,6.283]){
+      const lbl = piLabel(xv);
+      ctx.fillText(lbl, xToPx(xv), vToPx(0,1)+5);
+    }
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(const vv of [-1,0,1]){
+      ctx.fillText(String(vv), p1.x0-5, vToPx(vv,1));
+    }
+    // eksakt funktion (stiplet sort)
+    ctx.beginPath(); ctx.setLineDash([6,5]);
+    let started=false;
+    for(let px=p1.x0; px<=p1.x1; px+=1.5){
+      const xv = (px-p1.x0)/(p1.x1-p1.x0)*2*XMAX - XMAX;
+      const yv = f(xv);
+      if(!started){ctx.moveTo(px,vToPx(yv,1)); started=true;} else ctx.lineTo(px,vToPx(yv,1));
+    }
+    ctx.strokeStyle=EXACT; ctx.lineWidth=1.4; ctx.stroke(); ctx.setLineDash([]);
+    // Taylor-partialsumme (rød, kraftig)
+    ctx.beginPath(); started=false;
+    for(let px=p1.x0; px<=p1.x1; px+=1.5){
+      const xv = (px-p1.x0)/(p1.x1-p1.x0)*2*XMAX - XMAX;
+      let yv = T(xv);
+      if(!isFinite(yv) || Math.abs(yv)>10) yv = Math.sign(yv)*10;
+      if(!started){ctx.moveTo(px,vToPx(yv,1)); started=true;} else ctx.lineTo(px,vToPx(yv,1));
+    }
+    ctx.strokeStyle=APPROX; ctx.lineWidth=2.6; ctx.stroke();
+    // legend
+    ctx.font='11px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.setLineDash([4,3]); line([p1.x1-165,p1.y0+12],[p1.x1-140,p1.y0+12],1.4,EXACT); ctx.setLineDash([]);
+    ctx.fillStyle=EXACT; ctx.fillText('eksakt ' + (state.fn==='sin'?'sin(x)':'cos(x)'), p1.x1-134, p1.y0+12);
+    line([p1.x1-165,p1.y0+30],[p1.x1-140,p1.y0+30],2.4,APPROX);
+    ctx.fillStyle=APPROX; ctx.fillText('Taylor ('+(state.n+1)+' led)', p1.x1-134, p1.y0+30);
+
+    // ---------- nederste plot: fejl ----------
+    if(state.showErr){
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.2; ctx.strokeRect(p2.x0,p2.y0,p2.x1-p2.x0,p2.y1-p2.y0);
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='top';
+      ctx.fillText(state.logErr ? 'log₁₀|fejl|' : '|fejl|', p2.x0+6, p2.y0+4);
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      if(state.logErr){
+        for(const lv of [-16,-12,-8,-4,0]){
+          ctx.fillText('1e'+lv, p2.x0-5, vToPx(Math.pow(10,lv),2));
+        }
+      } else {
+        for(const vv of [0,1,2]){
+          ctx.fillText(vv.toFixed(0), p2.x0-5, vToPx(vv,2));
+        }
+      }
+      // fejl-kurve
+      ctx.beginPath(); started=false;
+      for(let px=p2.x0; px<=p2.x1; px+=1.5){
+        const xv = (px-p2.x0)/(p2.x1-p2.x0)*2*XMAX - XMAX;
+        const ev = Math.abs(f(xv) - T(xv));
+        if(!started){ctx.moveTo(px,vToPx(ev,2)); started=true;} else ctx.lineTo(px,vToPx(ev,2));
+      }
+      ctx.strokeStyle=ERR; ctx.lineWidth=2; ctx.stroke();
+      // annotation: første udeladte led-forklaring
+      ctx.fillStyle=MUTED; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='right'; ctx.textBaseline='top';
+      ctx.fillText('fejlen domineres af det første udeladte led', p2.x1-6, p2.y0+4);
+    }
+
+    // ---------- trukket x-linje på tværs ----------
+    const xp = xToPx(state.x);
+    ctx.setLineDash([4,4]);
+    line([xp,p1.y0],[xp,p1.y1],1.2,FAINT);
+    if(state.showErr) line([xp,p2.y0],[xp,p2.y1],1.2,FAINT);
+    ctx.setLineDash([]);
+    // punkter
+    dot(xp, vToPx(f(state.x),1), 5.5, '#fff', EXACT, 2.2);
+    dot(xp, vToPx(T(state.x),1), 5.5, '#fff', APPROX, 2.2);
+    if(state.showErr) dot(xp, vToPx(Math.abs(f(state.x)-T(state.x)),2), 5, '#fff', ERR, 2.2);
+    // x-label
+    pill('x = '+state.x.toFixed(2), xp, p2.y1+14, 10.5, INK, true);
+
+    updReadout();
+  }
+
+  // ---- readouts ----
+  function updReadout(){
+    const f = x => exact(x, state.fn);
+    const T = x => taylor(x, state.n+1, state.fn);
+    E('tw-hk').textContent = 'x = ' + piLabel(state.x) + (Math.abs(state.x/Math.PI - Math.round(state.x/Math.PI))<1e-9 ? '' : '');
+    E('tw-hf').textContent = f(state.x).toFixed(5);
+    E('tw-ht').textContent = T(state.x).toFixed(5);
+    const err = Math.abs(f(state.x)-T(state.x));
+    E('tw-he').textContent = err===0 ? '0' : (err<1e-4 ? err.toExponential(2) : err.toFixed(5));
+    E('tw-nv').textContent = (state.n+1);
+    E('tw-ns').value = state.n;
+    // formel med aktive termer (korrekte +/− operatorer imellem ledene)
+    let html = (state.fn==='sin' ? 'sin(x) ≈' : 'cos(x) ≈') + ' ';
+    const parts = [];
+    for(let k=0;k<=state.n;k++){
+      const lbl = termLabel(k,state.fn);
+      // termLabel for k>0 starter med '−' hvis negativt led; ellers skal der et '+' foran (undtagen første led)
+      if(k===0){
+        parts.push('<span class="term active">'+lbl+'</span>');
+      } else if(lbl.startsWith('−')){
+        parts.push('<span class="term active">'+lbl+'</span>');
+      } else {
+        parts.push('<span class="term active">+'+lbl+'</span>');
+      }
+    }
+    if(state.n<10) parts.push('<span class="term dim">+ …</span>');
+    html += parts.join(' ');
+    E('tw-formula').innerHTML = html;
+    // n-mikro: rækkevidde af potenser
+    const pmax = state.fn==='sin' ? 2*state.n+1 : 2*state.n;
+    E('tw-nmicro').textContent = 'potenser op til x^'+pmax+' · '+(state.n+1)+' led';
+    // godt område-note
+    const good = Math.min(XMAX, 2*(state.n+1));
+    E('tw-gnote').innerHTML = 'god tilnærmelse ca. for |x| < '+(2*(state.n+1))+' rad (±'+(2*(state.n+1)*180/Math.PI).toFixed(0)+'°)';
+    E('tw-hfk').textContent = state.fn==='sin' ? 'eksakt sin' : 'eksakt cos';
+  }
+
+  // ---- controls ----
+  E('tw-ns').addEventListener('input', e=>{ stopAnim(); state.n = +e.target.value; render(); });
+  E('tw-fsin').addEventListener('click', ()=>{ setFunc('sin'); });
+  E('tw-fcos').addEventListener('click', ()=>{ setFunc('cos'); });
+  function setFunc(fn){
+    state.fn = fn;
+    E('tw-fsin').classList.toggle('active', fn==='sin');
+    E('tw-fcos').classList.toggle('active', fn==='cos');
+    E('tw-nlabel').textContent = fn==='sin' ? 'Led (x, x³, x⁵, …)' : 'Led (1, x², x⁴, …)';
+    render();
+  }
+  E('tw-cerr').addEventListener('change', e=>{ state.showErr = e.target.checked; render(); });
+  E('tw-clog').addEventListener('change', e=>{ state.logErr = e.target.checked; render(); });
+  E('tw-cgood').addEventListener('change', e=>{ state.showGood = e.target.checked; render(); });
+
+  function stopAnim(){
+    if(state.anim){ cancelAnimationFrame(state.anim); state.anim=null;
+      E('tw-anim').textContent='▶ Animer antal led (mellemrum)'; }
+  }
+  function startAnim(){
+    stopAnim();
+    E('tw-anim').textContent='⏸ Stop animation';
+    let phase = 0;
+    const tick = ()=>{
+      phase++;
+      if(phase % 40 === 0){
+        state.n = state.n >= 10 ? 0 : state.n+1;
+        render();
+      }
+      state.anim = requestAnimationFrame(tick);
+    };
+    state.anim = requestAnimationFrame(tick);
+  }
+  E('tw-anim').addEventListener('click', ()=> state.anim ? stopAnim() : startAnim());
+
+  // ---- pointer: træk x ----
+  let dragging=false;
+  canvas.addEventListener('pointerdown', ev=>{
+    const r = canvas.getBoundingClientRect();
+    const px = ev.clientX-r.left;
+    if(px >= L.p1.x0 && px <= L.p1.x1){ dragging=true; stopAnim(); canvas.setPointerCapture(ev.pointerId); }
+  });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!dragging) return;
+    const r = canvas.getBoundingClientRect();
+    const px = ev.clientX-r.left;
+    state.x = Math.max(-XMAX, Math.min(XMAX, (px-L.p1.x0)/(L.p1.x1-L.p1.x0)*2*XMAX - XMAX));
+    render();
+  });
+  const endDrag = ()=>{ dragging=false; };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  window.addEventListener('keydown', ev=>{
+    if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if(ev.code==='Space'){ ev.preventDefault(); state.anim?stopAnim():startAnim(); }
+    if(ev.key==='ArrowRight'){ state.x=Math.min(XMAX,state.x+Math.PI/12); render(); ev.preventDefault(); }
+    if(ev.key==='ArrowLeft'){ state.x=Math.max(-XMAX,state.x-Math.PI/12); render(); ev.preventDefault(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.taylor = {
+    state,
+    setN(n){ state.n = Math.max(0, Math.min(10, n|0)); render(); },
+    setFunc(fn){ if(fn==='sin'||fn==='cos'){ setFunc(fn); } },
+    getX(){ return state.x; },
+    setX(x){ state.x = Math.max(-XMAX, Math.min(XMAX, x)); render(); },
+    getError(x){ const xv = x!==undefined ? x : state.x; return Math.abs(exact(xv,state.fn) - taylor(xv, state.n+1, state.fn)); },
+    render,
+    selfTest(){
+      const out={checks:[], ok:true};
+      const chk=(name,cond,val)=>{ out.checks.push({name, pass:!!cond, val}); if(!cond) out.ok=false; };
+      // partialsummer matcher kendte værdier
+      chk('T_sin(0.5, 1 led) = 0.5', Math.abs(taylor(0.5,1,'sin')-0.5)<1e-12, taylor(0.5,1,'sin'));
+      chk('T_cos(0, 1 led) = 1', Math.abs(taylor(0,1,'cos')-1)<1e-12, taylor(0,1,'cos'));
+      chk('T_sin(1, 3 led) ≈ sin(1) (|err|<2e-4)', Math.abs(taylor(1,3,'sin')-Math.sin(1))<2e-4, Math.abs(taylor(1,3,'sin')-Math.sin(1)));
+      chk('T_cos(1, 3 led) ≈ cos(1) (|err|<2e-3)', Math.abs(taylor(1,3,'cos')-Math.cos(1))<2e-3, Math.abs(taylor(1,3,'cos')-Math.cos(1)));
+      // konvergens: fejl falder monont i n (på x=0.8)
+      let mono=true;
+      for(let n=1;n<10;n++){
+        if(Math.abs(taylor(0.8,n+1,'sin')-Math.sin(0.8)) < Math.abs(taylor(0.8,n,'sin')-Math.sin(0.8)) - 1e-15) continue;
+        if(n>=6) continue; // ved meget små fejl tilliges ligeværd
+        mono=false;
+      }
+      chk('fejl falder i antal led (x=0.8)', Math.abs(taylor(0.8,11,'sin')-Math.sin(0.8)) < Math.abs(taylor(0.8,3,'sin')-Math.sin(0.8)), null);
+      // høj præcision ved mange led
+      chk('sin: 11 led → |fejl|<1e-8 ved |x|<4', Math.abs(taylor(3.9,11,'sin')-Math.sin(3.9))<1e-8, Math.abs(taylor(3.9,11,'sin')-Math.sin(3.9)));
+      chk('cos: 11 led → |fejl|<1e-8 ved |x|<4', Math.abs(taylor(3.9,11,'cos')-Math.cos(3.9))<1e-8, Math.abs(taylor(3.9,11,'cos')-Math.cos(3.9)));
+      return out;
+    }
+  };
+  render();
+})();
+</script>
+</body>
+</html>

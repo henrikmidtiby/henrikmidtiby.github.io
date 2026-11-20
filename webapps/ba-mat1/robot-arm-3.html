@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>2-D Robot Arm · End-Effector Workspace</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .ra-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .ra-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .ra-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .ra-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  /* Arm stage gets the majority of the width; controls in a slim rail. */
+  .ra-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.ra-grid{grid-template-columns:1fr}}
+
+  .ra-stage{position:relative;height:min(760px,80vh);min-height:500px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .ra-stage canvas{display:block;width:100%;height:100%;cursor:crosshair}
+  .ra-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .ra-chip{background:rgba(255,255,255,.9);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:74px}
+  .ra-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .ra-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .ra-legend{position:absolute;bottom:12px;left:12px;font-size:11.5px;color:var(--muted);
+    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:12px}
+  .ra-legend b{font-weight:800;margin-right:5px;display:inline-block}
+
+  .ra-btnzoom{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer}
+  .ra-btnzoom:hover{background:#f2f2f2}
+  .ra-mini{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .ra-panel{display:flex;flex-direction:column;gap:11px}
+  .ra-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .ra-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ra-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .ra-row:first-child{margin-top:0}
+  .ra-row label{font-size:13.5px;color:var(--ink);display:flex;align-items:center;gap:8px}
+  .ra-row label .idx{width:19px;height:19px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:800;
+    color:#fff;border:1.5px solid var(--ink);background:#fff}
+  .ra-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:62px;text-align:right}
+  .ra-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .ra-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .ra-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .ra-switch{ -webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .ra-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .ra-switch:checked{background:var(--ink)}
+  .ra-switch:checked:after{transform:translateX(18px)}
+
+  .ra-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .ra-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .ra-footeq .row{margin:3px 0}
+  .ra-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="ra-root" id="ra-root">
+  <div class="ra-head">
+    <div>
+      <div class="ra-title">2-D planar robot arm · end-effector workspace</div>
+      <div class="ra-sub">Forward kinematics of a two-link arm. Set the two <b>angle inputs</b> below and the
+        end-effector follows — its location shown against the reachable workspace.</div>
+    </div>
+  </div>
+
+  <div class="ra-grid">
+    <div class="ra-stage">
+      <canvas id="ra-arm"></canvas>
+      <div class="ra-hud">
+        <div class="ra-chip"><span class="k">θ1 · base</span><span class="v" id="ra-th1">–</span></div>
+        <div class="ra-chip"><span class="k">θ2 · elbow</span><span class="v" id="ra-th2">–</span></div>
+        <div class="ra-chip"><span class="k">x</span><span class="v" id="ra-x">–</span></div>
+        <div class="ra-chip"><span class="k">y</span><span class="v" id="ra-y">–</span></div>
+        <div class="ra-chip"><span class="k">‖p‖</span><span class="v" id="ra-norm">–</span></div>
+      </div>
+      <div class="ra-legend">
+        <span><b>│</b>link&nbsp;1</span>
+        <span><b>║</b>link&nbsp;2</span>
+        <span><b>●</b>end-effector</span>
+      </div>
+    </div>
+
+    <div class="ra-panel">
+      <div class="ra-card">
+        <h3>Control inputs (angles)</h3>
+
+        <div class="ra-row">
+          <label><span class="idx">1</span>Base angle θ1</label>
+          <span class="ra-val" id="ra-th1v">70.0°</span>
+        </div>
+        <input class="ra-range" id="ra-th1s" type="range" min="-180" max="180" step="0.5" value="70" />
+
+        <div class="ra-row" style="margin-top:12px">
+          <label><span class="idx">2</span>Elbow angle θ2</label>
+          <span class="ra-val" id="ra-th2v">55.0°</span>
+        </div>
+        <input class="ra-range" id="ra-th2s" type="range" min="-180" max="180" step="0.5" value="55" />
+        <div class="ra-micro">θ2 is measured relative to link&nbsp;1 (the arm's elbow).</div>
+      </div>
+
+      <div class="ra-card">
+        <h3>Linearization · Δθ inputs</h3>
+        <div class="ra-row" style="margin-top:4px">
+          <label>Δθ1 (about base)</label>
+          <span class="ra-val" id="ra-dt1v" style="min-width:52px">0.0°</span>
+        </div>
+        <input class="ra-range" id="ra-dt1s" type="range" min="-30" max="30" step="0.5" value="0" />
+        <div class="ra-row" style="margin-top:10px">
+          <label>Δθ2 (about elbow)</label>
+          <span class="ra-val" id="ra-dt2v" style="min-width:52px">0.0°</span>
+        </div>
+        <input class="ra-range" id="ra-dt2s" type="range" min="-30" max="30" step="0.5" value="0" />
+        <div class="ra-row" style="margin-top:10px;justify-content:flex-end;gap:8px">
+          <span style="font-size:12px;color:var(--muted)">‖J·Δθ‖ &nbsp;</span>
+          <span class="ra-val" id="ra-jdmg" style="min-width:74px">0.000</span>
+          <span style="font-size:12px;color:var(--muted)">err&nbsp;</span>
+          <span class="ra-val" id="ra-jdiff" style="min-width:64px">—</span>
+        </div>
+        <div class="ra-micro">Vectors at the end-effector: <b>J₁</b> = ∂p/∂θ1, <b>J₂</b> = ∂p/∂θ2, and <b>J·Δθ</b> = J₁·Δθ1 + J₂·Δθ2 (the linear estimate of the motion). "err" is ‖(p+JΔθ) − p_exact(θ+Δθ)‖.</div>
+      </div>
+
+      <div class="ra-card">
+        <h3>Geometry</h3>
+        <div class="ra-row"><label>Link&nbsp;1 length L1</label><span class="ra-val" id="ra-l1v">1.00</span></div>
+        <input class="ra-range" id="ra-l1" type="range" min="0.3" max="1.6" step="0.05" value="1.0" />
+        <div class="ra-row" style="margin-top:10px"><label>Link&nbsp;2 length L2</label><span class="ra-val" id="ra-l2v">0.70</span></div>
+        <input class="ra-range" id="ra-l2" type="range" min="0.2" max="1.4" step="0.05" value="0.7" />
+      </div>
+
+      <div class="ra-card">
+        <h3>View</h3>
+        <div class="ra-row"><label>Zoom</label><span class="ra-val" id="ra-zv">1.00×</span></div>
+        <input class="ra-range" id="ra-zs" type="range" min="1" max="12" step="0.1" value="1" />
+        <div class="ra-mini" style="margin-bottom:6px">Center: base (origin). Drag a point on the canvas to recenter.</div>
+        <button class="ra-btnzoom" id="ra-zee">⌖ Zoom on end-effector</button>
+        <div class="ra-mini" id="ra-zee-note">Click to focus on the end-effector dot (zoom ×4).</div>
+
+        <div style="border-top:1px solid var(--line);margin:12px -13px 6px"></div>
+        <div class="ra-toggle"><label>Workspace annulus</label><input type="checkbox" class="ra-switch" id="ra-cw" checked></div>
+        <div class="ra-toggle"><label>Axes &amp; projections</label><input type="checkbox" class="ra-switch" id="ra-cp" checked></div>
+        <div class="ra-toggle"><label>Angle arcs</label><input type="checkbox" class="ra-switch" id="ra-ca" checked></div>
+        <div class="ra-toggle"><label>Jacobian vectors</label><input type="checkbox" class="ra-switch" id="ra-cj" checked></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ra-card ra-footeq">
+    <div class="row"><b>Forward kinematics</b> — end-effector position <code>p</code> as a function of the two angle inputs:</div>
+    <div class="row"><code>x = L1·cos θ1 + L2·cos(θ1+θ2)</code> &nbsp; <code>y = L1·sin θ1 + L2·sin(θ1+θ2)</code></div>
+    <div class="row">Reachable workspace: annulus <code>|L1−L2| ≤ ‖p‖ ≤ L1+L2</code> from the base (shaded).</div>
+    <div class="ra-note">Self-contained single file · no external dependencies · white/monochrome.
+      The shaded ring is the <b>workspace</b>; the filled dot is the <b>end-effector</b>; dashed lines show its (x, y) projections.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const DEG = Math.PI/180;
+  const canvas = document.getElementById('ra-arm');
+  const ctx    = canvas.getContext('2d');
+
+  // ---- monochrome palette ----
+  const INK     = '#111111';
+  const INK2    = '#3a3a3a';
+  const MID     = '#5a5a5a';
+  const MUTED   = '#555555';
+  const FAINT   = '#9a9a9a';
+  const GRID    = '#ececec';
+  const AXIS    = '#c2c2c2';
+  const PROJ    = '#6f6f6f';
+  const WSBAND  = '#f1f1f1';       // workspace band fill
+  const WSOUT   = '#111111';       // outer boundary
+  const WSCUT   = '#8a8a8a';       // inner (unreachable) boundary
+
+  // ---- state ----
+  const state = {
+    L1:1.0, L2:0.7,
+    th1:70*DEG, th2:55*DEG,
+    dth1:0*DEG, dth2:0*DEG,       // linearization inputs Δθ
+    showWorkspace:true, showProjects:true, showAngles:true, showJacobian:true
+  };
+  const view = { cx:0, cy:0, zoom:1 };   // world-space center + zoom factor
+
+  // ---- kinematics ----
+  function elbow(){ return { x:state.L1*Math.cos(state.th1), y:state.L1*Math.sin(state.th1) }; }
+  function fk(th1, th2){
+    const b = th1+th2;
+    return { x:state.L1*Math.cos(th1)+state.L2*Math.cos(b),
+             y:state.L1*Math.sin(th1)+state.L2*Math.sin(b) };
+  }
+  function ee(){ return fk(state.th1, state.th2); }
+  // Jacobian J = ∂p/∂θ : columns are the pure-rotation directions of each joint
+  function jacobian(th1, th2){
+    const b = th1+th2;
+    return {
+      j1: { x:-state.L1*Math.sin(th1) - state.L2*Math.sin(b),
+            y: state.L1*Math.cos(th1) + state.L2*Math.cos(b) },
+      j2: { x:-state.L2*Math.sin(b), y: state.L2*Math.cos(b) }
+    };
+  }
+
+  // ---- sizing ----
+  let dpr = 1;
+  function resize(){
+    const r = canvas.getBoundingClientRect();
+    dpr = (window.devicePixelRatio||1);
+    canvas.width  = Math.max(1, Math.round(r.width*dpr));
+    canvas.height = Math.max(1, Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize', resize);
+
+  // ---- draw helpers ----
+  function line(a,b,w,c){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; ctx.stroke(); }
+  function circle(x,y,r,fill,stroke,lw){ if(fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke();} }
+  function label(txt,x,y,align,color,fs){ ctx.font=(fs||12)+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.fillStyle=color; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x,y); }
+  function arcLabel(txt,x,y){
+    const size=12.5;
+    ctx.font='bold '+size+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w = ctx.measureText(txt).width, hs=size/2, px=4.5, py=3;
+    ctx.fillStyle='rgba(255,255,255,.88)';
+    ctx.beginPath(); ctx.roundRect(x-w/2-px,y-hs-py,w+2*px,size+2*py,5); ctx.fill();
+    ctx.strokeStyle='#cfcfcf'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,x,y);
+  }
+  // Arrow from world point a to b (screen coords), monochrome. `lw` line width, `ah` arrowhead length.
+  function arrow(a, b, lw, color, ah){
+    ah = ah || Math.max(9, lw*2.6);
+    ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=lw; ctx.lineCap='round';
+    const ang = Math.atan2(b[1]-a[1], b[0]-a[0]);
+    const x = b[0] - ah*Math.cos(ang), y = b[1] - ah*Math.sin(ang);
+    ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(x,y); ctx.stroke();
+    // head
+    const ha = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(b[0],b[1]);
+    ctx.lineTo(b[0]-ah*Math.cos(ang-ha), b[1]-ah*Math.sin(ang-ha));
+    ctx.lineTo(b[0]-ah*Math.cos(ang+ha), b[1]-ah*Math.sin(ang+ha));
+    ctx.closePath(); ctx.fill();
+  }
+  // small pill label (for vector tags)
+  function pill(txt,cx,cy,fs){
+    fs = fs || 11.5;
+    ctx.font='bold '+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+
+  // ---- render (synchronous; called on any change) ----
+  function render(){
+    const W = canvas.clientWidth || canvas.width;
+    const H = canvas.clientHeight || canvas.height;
+    if(!W || !H) return;
+    const R = state.L1+state.L2;
+    const scale = (Math.min(W,H)/2 - 40)/(R+0.30) * view.zoom;
+    const cx = W/2, cy = H/2;                       // screen center
+    const sx = wx => cx + (wx - view.cx)*scale;
+    const sy = wy => cy - (wy - view.cy)*scale;
+    const bx = sx(0), by = sy(0);                   // screen position of the base (world origin)
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+
+    const base = [sx(0), sy(0)];
+    const el   = elbow();
+    const ep   = ee();
+
+    // workspace annulus
+    if(state.showWorkspace){
+      const rin = Math.abs(state.L1-state.L2)*scale, rout = R*scale;
+      ctx.beginPath();
+      ctx.arc(bx,by,rout,0,Math.PI*2);
+      ctx.arc(bx,by,Math.max(0,rin),0,Math.PI*2,true);
+      ctx.fillStyle=WSBAND; ctx.fill('evenodd');
+      ctx.lineWidth=2; ctx.strokeStyle=WSOUT; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(bx,by,rout,0,Math.PI*2); ctx.stroke();
+      if(rin>1){
+        ctx.lineWidth=1.5; ctx.strokeStyle=WSCUT; ctx.setLineDash([6,5]);
+        ctx.beginPath(); ctx.arc(bx,by,rin,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+      }
+      label('max reach  L1+L2 = '+R.toFixed(2), bx, Math.min(H-10, by+rout+16), 'center', FAINT, 10.5);
+      if(rin>1) label('unreachable  |L1−L2| = '+Math.abs(state.L1-state.L2).toFixed(2), bx, Math.max(10,by-rin+16), 'center', FAINT, 10.5);
+    }
+
+    // grid + axes (in world coords; visible extent from the current view)
+    const halfW = Math.min(W,H)/2, half = (halfW)/scale;
+    const uMinW = Math.floor(view.cx - half/2) - 1;
+    const uMaxW = Math.ceil (view.cx + half/2) + 1;
+    if(state.showProjects){
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=uMinW;u<=uMaxW;u++){
+        ctx.beginPath(); ctx.moveTo(sx(u),sy(uMinW)); ctx.lineTo(sx(u),sy(uMaxW)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx(uMinW),sy(u)); ctx.lineTo(sx(uMaxW),sy(u)); ctx.stroke();
+      }
+      ctx.strokeStyle=AXIS; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(sx(uMinW),sy(0)); ctx.lineTo(sx(uMaxW),sy(0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(uMinW)); ctx.lineTo(sx(0),sy(uMaxW)); ctx.stroke();
+      // tick spacing: pick a step so labels don't crowd when zoomed
+      const step = view.zoom>3 ? 0.5 : 1;
+      const dec = step<1 ? 1 : 0;
+      for(let u=Math.ceil(uMinW/step)*step; u<=uMaxW; u+=step){
+        if(Math.abs(u) < step/2) continue;
+        ctx.strokeStyle=AXIS;
+        const px = sx(u), py = sy(u);
+        ctx.beginPath(); ctx.moveTo(px,sy(0)-5); ctx.lineTo(px,sy(0)+5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx(0)-5,py); ctx.lineTo(sx(0)+5,py); ctx.stroke();
+        label(u.toFixed(dec), px, sy(0)+14, 'center', FAINT, 10.5);
+        label(u.toFixed(dec), sx(0)-9, py, 'right', FAINT, 10.5);
+      }
+      label('x', sx(uMaxW), sy(0)-14, 'right', MUTED, 12);
+      label('y', sx(0)+14, sy(uMaxW), 'left', MUTED, 12);
+    }
+
+    // angle arcs
+    if(state.showAngles){
+      ctx.lineWidth=2; ctx.strokeStyle=INK2;
+      ctx.beginPath(); ctx.arc(base[0],base[1],26,0,-state.th1,state.th1>0); ctx.stroke();
+      const mid1 = -state.th1/2;
+      arcLabel('θ1', base[0]+Math.cos(mid1)*44, base[1]+Math.sin(mid1)*44);
+
+      const ex=sx(el.x), ey=sy(el.y);
+      ctx.strokeStyle=INK2;
+      ctx.beginPath(); ctx.arc(ex,ey,24,-state.th1,-(state.th1+state.th2),state.th2>0); ctx.stroke();
+      const mid2 = -(state.th1 + state.th2/2);
+      arcLabel('θ2', ex+Math.cos(mid2)*56, ey+Math.sin(mid2)*56);
+    }
+
+    // projections from EE to axes (world axes, wherever they currently are on screen)
+    if(state.showProjects){
+      ctx.setLineDash([5,5]); ctx.lineWidth=1.3; ctx.strokeStyle=PROJ;
+      const ex=sx(ep.x), ey=sy(ep.y);
+      const axX = sy(0);          // screen y of the x-axis
+      const axY = sx(0);          // screen x of the y-axis
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex,axX); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(axY,ey); ctx.stroke();
+      ctx.setLineDash([]);
+      circle(ex,axX,3.2,INK);
+      circle(axY,ey,3.2,INK);
+    }
+
+    // arm
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.22)'; ctx.shadowBlur=8; ctx.shadowOffsetY=3;
+    ctx.lineWidth=11; ctx.lineCap='round'; line(base,[sx(el.x),sy(el.y)],11,INK);   // link 1: solid black
+    ctx.restore();
+    ctx.lineWidth=9; ctx.lineCap='round'; line([sx(el.x),sy(el.y)],[sx(ep.x),sy(ep.y)],9,INK2); // link 2: dark gray
+    // fine centerline for a crisp mechanical look
+    ctx.lineWidth=1.4; ctx.strokeStyle='#fff';
+    line(base,[sx(el.x),sy(el.y)],1.4,'#fff');
+    line([sx(el.x),sy(el.y)],[sx(ep.x),sy(ep.y)],1.4,'#fff');
+
+    // joints
+    circle(base[0],base[1],8.5,'#fff',INK,2.2);
+    circle(sx(el.x),sy(el.y),7.5,'#fff',INK,2.2);
+
+    // end-effector: white core, black ring
+    circle(sx(ep.x),sy(ep.y),8,'#fff',INK,3);
+    circle(sx(ep.x),sy(ep.y),2.6,INK);
+    // crosshair
+    ctx.strokeStyle=INK; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(sx(ep.x)-13,sy(ep.y)); ctx.lineTo(sx(ep.x)+13,sy(ep.y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(ep.x),sy(ep.y)-13); ctx.lineTo(sx(ep.x),sy(ep.y)+13); ctx.stroke();
+
+    // ---- linearization at the EE: J vectors + estimate of Δp for Δθ ----
+    if(state.showJacobian){
+      const J = jacobian(state.th1, state.th2);
+      const eePx = [sx(ep.x), sy(ep.y)];
+      // scale so that 1 unit in J·Δθ space = scale px (same world scale as the arm)
+      const w2sc = (wx,wy) => [sx(wx), sy(wy)];
+
+      // J1 = ∂p/∂θ1, J2 = ∂p/∂θ2 (columns of the Jacobian matrix)
+      const t1 = state.th1 > 0;
+      const end1 = w2sc(ep.x+J.j1.x, ep.y+J.j1.y);
+      const end2 = w2sc(ep.x+J.j2.x, ep.y+J.j2.y);
+      arrow(eePx, end1, 2.2, INK2, 12);
+      arrow(eePx, end2, 2.2, INK2, 12);
+      // label: sit at 72% along each arrow, offset perpendicular — tips are the most separated points
+      const dx1 = end1[0]-eePx[0], dy1 = end1[1]-eePx[1];
+      const dx2 = end2[0]-eePx[0], dy2 = end2[1]-eePx[1];
+      const l1len = Math.hypot(dx1,dy1)||1, l2len = Math.hypot(dx2,dy2)||1;
+      const l1 = [eePx[0]+dx1*0.72 - (dy1/l1len)*18, eePx[1]+dy1*0.72 + (dx1/l1len)*18];
+      const l2 = [eePx[0]+dx2*0.72 - (dy2/l2len)*18, eePx[1]+dy2*0.72 + (dx2/l2len)*18];
+      pill('∂p/∂θ1', l1[0], l1[1], 10.5);
+      pill('∂p/∂θ2', l2[0], l2[1], 10.5);
+
+      // predicted EE (linear estimate): p + J·Δθ
+      const dth1 = state.dth1, dth2 = state.dth2;
+      const predX = ep.x + J.j1.x*dth1 + J.j2.x*dth2;
+      const predY = ep.y + J.j1.y*dth1 + J.j2.y*dth2;
+      const predPx = [sx(predX), sy(predY)];
+      const dpx = predPx[0]-eePx[0], dpy = predPx[1]-eePx[1];
+      const dlen = Math.hypot(dpx,dpy)||1;
+      if(dlen > 1.5) {
+        arrow(eePx, predPx, 3.2, INK, 14);
+        const lJ = [(eePx[0]+predPx[0])/2 + (-dpy/dlen)*18,
+                    (eePx[1]+predPx[1])/2 + ( dpx/dlen)*18];
+        pill('J·Δθ', lJ[0], lJ[1], 11.5);
+      }
+
+      // exact EE after (θ+Δθ) — white outline marker
+      const exact = fk(state.th1+dth1, state.th2+dth2);
+      const exExact = [sx(exact.x), sy(exact.y)];
+      if(Math.hypot(exact.x-ep.x, exact.y-ep.y) > 1e-6) {
+        circle(exExact[0], exExact[1], 5, '#fff', INK, 1.6);
+      }
+      // error vector: p_exact(θ+Δθ) - (p + J·Δθ)
+      const errVec = [exact.x-predX, exact.y-predY];
+      if(Math.hypot(errVec[0],errVec[1])>1e-4){
+        const errPx = [sx(exact.x), sy(exact.y)];
+        arrow(predPx, errPx, 1.6, FAINT, 9);
+        const dxe = errPx[0]-predPx[0], dye = errPx[1]-predPx[1];
+        const le = Math.hypot(dxe,dye)||1;
+        const lE = [(predPx[0]+errPx[0])/2 + (-dye/le)*16,
+                    (predPx[1]+errPx[1])/2 + ( dxe/le)*16];
+        pill('err', lE[0], lE[1], 10);
+      }
+    }
+
+    updReadout(ep);
+  }
+
+  // ---- HUD ----
+  const e = id => document.getElementById(id);
+  function updReadout(ep){
+    const canon = r => { let d=(r/DEG)%360; if(d>180)d-=360; if(d<-180)d+=360; return d; };
+    const d1 = canon(state.th1), d2 = canon(state.th2);
+    e('ra-th1').textContent = d1.toFixed(1)+'°';
+    e('ra-th2').textContent = d2.toFixed(1)+'°';
+    e('ra-x').textContent = ep.x.toFixed(3);
+    e('ra-y').textContent = ep.y.toFixed(3);
+    e('ra-norm').textContent = Math.hypot(ep.x,ep.y).toFixed(3);
+    e('ra-th1s').value = d1; e('ra-th1v').textContent = d1.toFixed(1)+'°';
+    e('ra-th2s').value = d2; e('ra-th2v').textContent = d2.toFixed(1)+'°';
+    // Sync Δθ chips with state (so zoomOnEE / setDelta etc. keep the labels correct)
+    const dth1deg = state.dth1/DEG, dth2deg = state.dth2/DEG;
+    e('ra-dt1s').value = dth1deg; e('ra-dt1v').textContent = dth1deg.toFixed(1)+'°';
+    e('ra-dt2s').value = dth2deg; e('ra-dt2v').textContent = dth2deg.toFixed(1)+'°';
+
+    // linearization magnitudes
+    const J = jacobian(state.th1, state.th2);
+    const px = ep.x + J.j1.x*state.dth1 + J.j2.x*state.dth2;
+    const py = ep.y + J.j1.y*state.dth1 + J.j2.y*state.dth2;
+    const ex = fk(state.th1+state.dth1, state.th2+state.dth2);
+    const magn = Math.hypot(px-ep.x, py-ep.y);
+    const errv = Math.hypot(ex.x-px, ex.y-py);
+    e('ra-jdmg').textContent = magn.toFixed(3);
+    e('ra-jdiff').textContent = errv < 1e-9 ? '0.00e+0' : errv.toExponential(2);
+  }
+
+  // ---- controls ----
+  function bind(rangeId, outId, fn, fmt){
+    const r = e(rangeId), o = e(outId);
+    r.addEventListener('input', ()=>{
+      const v = parseFloat(r.value);
+      fn(v); o.textContent = fmt(v);
+      render();
+    });
+  }
+  bind('ra-th1s','ra-th1v', v=>{ state.th1 = v*DEG; }, v=>v.toFixed(1)+'°');
+  bind('ra-th2s','ra-th2v', v=>{ state.th2 = v*DEG; }, v=>v.toFixed(1)+'°');
+  bind('ra-dt1s','ra-dt1v', v=>{ state.dth1 = v*DEG; }, v=>v.toFixed(1)+'°');
+  bind('ra-dt2s','ra-dt2v', v=>{ state.dth2 = v*DEG; }, v=>v.toFixed(1)+'°');
+  bind('ra-l1','ra-l1v',    v=>{ state.L1=v; }, v=>v.toFixed(2));
+  bind('ra-l2','ra-l2v',    v=>{ state.L2=v; }, v=>v.toFixed(2));
+  bind('ra-zs','ra-zv',     v=>{ view.zoom=v; }, v=>v.toFixed(2)+'×');
+
+  e('ra-cw').addEventListener('change',ev=>{ state.showWorkspace=ev.target.checked; render(); });
+  e('ra-cp').addEventListener('change',ev=>{ state.showProjects=ev.target.checked; render(); });
+  e('ra-ca').addEventListener('change',ev=>{ state.showAngles=ev.target.checked; render(); });
+  e('ra-cj').addEventListener('change',ev=>{ state.showJacobian=ev.target.checked; render(); });
+
+  // Zoom on end-effector (focus view on the EE dot)
+  function zoomOnEE(z){
+    z = z || 4;
+    const p = ee();
+    view.zoom = Math.min(12, Math.max(1, z));
+    view.cx = p.x; view.cy = p.y;
+    e('ra-zs').value = view.zoom; e('ra-zv').textContent = view.zoom.toFixed(2)+'×';
+    e('ra-zee-note').textContent = 'Centered on the end-effector ('+p.x.toFixed(2)+', '+p.y.toFixed(2)+'). Drag to pan.';
+    render();
+  }
+  function resetView(){
+    view.zoom = 1; view.cx = 0; view.cy = 0;
+    e('ra-zs').value = 1; e('ra-zv').textContent = '1.00×';
+    render();
+  }
+  e('ra-zee').addEventListener('click', ()=>zoomOnEE(4));
+
+  // Drag on canvas = recenter on the world point under the pointer (pan)
+  let dragging=false, dragStart=null;
+  function pointerWorld(ev){
+    const r = canvas.getBoundingClientRect();
+    const px = ev.clientX - r.left, py = ev.clientY - r.top;
+    const W = r.width, H = r.height;
+    const R = state.L1+state.L2;
+    const scale = (Math.min(W,H)/2 - 40)/(R+0.30) * view.zoom;
+    const cx = W/2, cy = H/2;
+    return { x: (px - cx)/scale + view.cx, y: -(py - cy)/scale + view.cy };
+  }
+  canvas.addEventListener('pointerdown', ev=>{ dragging=true; dragStart=pointerWorld(ev); canvas.setPointerCapture(ev.pointerId); });
+  canvas.addEventListener('pointermove', ev=>{
+    if(!dragging) return;
+    const w = pointerWorld(ev);
+    view.cx = w.x; view.cy = w.y;
+    render();
+  });
+  canvas.addEventListener('pointerup',   ()=>{ dragging=false; });
+  canvas.addEventListener('pointercancel',()=>{ dragging=false; });
+  // double-click = zoom in on that point; shift-dblclick = reset
+  canvas.addEventListener('dblclick', ev=>{
+    if(ev.shiftKey){ resetView(); return; }
+    const w = pointerWorld(ev);
+    view.zoom = Math.min(12, view.zoom * 1.8);
+    view.cx = w.x; view.cy = w.y;
+    e('ra-zs').value = view.zoom; e('ra-zv').textContent = view.zoom.toFixed(2)+'×';
+    render();
+  });
+  window.addEventListener('keydown', ev=>{
+    if((ev.key==='0'||ev.key==='c') && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) resetView();
+    if((ev.key==='+'||ev.key==='=') && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){
+      view.zoom=Math.min(12,view.zoom*1.3); e('ra-zs').value=view.zoom; e('ra-zv').textContent=view.zoom.toFixed(2)+'×'; render();
+    }
+    if(ev.key==='-' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){
+      view.zoom=Math.max(1,view.zoom/1.3); e('ra-zs').value=view.zoom; e('ra-zv').textContent=view.zoom.toFixed(2)+'×'; render();
+    }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.raArm = {
+    state, view,
+    fk, jacobian, ee,
+    setTheta(deg1,deg2){ state.th1=deg1*DEG; state.th2=deg2*DEG; render(); },
+    setDelta(deg1,deg2){ state.dth1=deg1*DEG; state.dth2=deg2*DEG; render(); },
+    setView(cx,cy,zoom){ view.cx=cx; view.cy=cy; view.zoom=zoom; render(); },
+    zoomOnEE(z){ zoomOnEE(z); },
+    resetView,
+    position(){ return ee(); },
+    render,
+    selfTest(){
+      const s = this.state;
+      const b = s.th1+s.th2;
+      const x = s.L1*Math.cos(s.th1)+s.L2*Math.cos(b);
+      const y = s.L1*Math.sin(s.th1)+s.L2*Math.sin(b);
+      // Jacobian analytic
+      const j1 = { x: -s.L1*Math.sin(s.th1) - s.L2*Math.sin(b),
+                   y:  s.L1*Math.cos(s.th1) + s.L2*Math.cos(b) };
+      const j2 = { x: -s.L2*Math.sin(b), y: s.L2*Math.cos(b) };
+      // numeric Jacobian (central difference) for cross-checking
+      const h=1e-5;
+      const p0=fk(s.th1,s.th2);
+      const p1=fk(s.th1+h,s.th2), p2=fk(s.th1-h,s.th2);
+      const n1={ x:(p1.x-p2.x)/(2*h), y:(p1.y-p2.y)/(2*h) };
+      const p3=fk(s.th1,s.th2+h), p4=fk(s.th1,s.th2-h);
+      const n2={ x:(p3.x-p4.x)/(2*h), y:(p3.y-p4.y)/(2*h) };
+      return {
+        L1:+s.L1.toFixed(4), L2:+s.L2.toFixed(4),
+        th1deg:+(s.th1/DEG).toFixed(3), th2deg:+(s.th2/DEG).toFixed(3),
+        ee:{ x:+x.toFixed(4), y:+y.toFixed(4), r:+Math.hypot(x,y).toFixed(4) },
+        workspace:{ inner:+Math.abs(s.L1-s.L2).toFixed(4), outer:+(s.L1+s.L2).toFixed(4) },
+        J:{ j1:{x:+j1.x.toFixed(5),y:+j1.y.toFixed(5)}, j2:{x:+j2.x.toFixed(5),y:+j2.y.toFixed(5)} },
+        J_numeric:{ j1:{x:+n1.x.toFixed(5),y:+n1.y.toFixed(5)}, j2:{x:+n2.x.toFixed(5),y:+n2.y.toFixed(5)} },
+        jacobianMatch: Math.hypot(n1.x-j1.x,n1.y-j1.y,n2.x-j2.x,n2.y-j2.y) < 1e-4
+      };
+    }
+  };
+  resetView();
+})();
+</script>
+</body>
+</html>

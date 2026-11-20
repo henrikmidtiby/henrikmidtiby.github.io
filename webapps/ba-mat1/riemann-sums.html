@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Riemann-summer → det bestemte integral</title>
+<style>
+  :root{
+    --ink:#111; --ink2:#333; --muted:#555; --faint:#888;
+    --line:#d8d8d8; --line2:#e8e8e8;
+    --bg:#ffffff; --panel:#ffffff; --chipbg:#fafafa;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;}
+  .rs-root{max-width:1240px;margin:20px auto;padding:16px 18px 24px;}
+  .rs-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .rs-title{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .rs-sub{color:var(--muted);font-size:13px;margin-top:3px;line-height:1.45}
+
+  .rs-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:stretch}
+  @media(max-width:900px){.rs-grid{grid-template-columns:1fr}}
+
+  .rs-stage{position:relative;height:min(640px,72vh);min-height:460px;border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;background:#fff}
+  .rs-stage canvas{display:block;width:100%;height:100%;cursor:default}
+  .rs-stage canvas.grab{cursor:grabbing}
+  .rs-hud{position:absolute;top:12px;left:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+  .rs-chip{background:rgba(255,255,255,.92);border:1px solid var(--line);
+    border-radius:9px;padding:6px 10px;font-size:12px;min-width:92px}
+  .rs-chip .k{display:block;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .rs-chip .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--ink)}
+  .rs-hint{position:absolute;bottom:12px;right:12px;font-size:11px;color:var(--faint);
+    background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:9px;padding:5px 10px}
+
+  .rs-panel{display:flex;flex-direction:column;gap:11px}
+  .rs-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .rs-card h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .rs-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}
+  .rs-row:first-child{margin-top:0}
+  .rs-row label{font-size:13.5px;color:var(--ink)}
+  .rs-val{font-variant-numeric:tabular-nums;font-weight:700;font-size:13.5px;color:var(--ink);
+    background:var(--chipbg);border:1px solid var(--line);border-radius:7px;padding:4px 9px;min-width:74px;text-align:right}
+  .rs-range{width:100%;accent-color:var(--ink);height:22px;cursor:pointer}
+  .rs-micro{margin-top:2px;font-size:11px;color:var(--faint)}
+
+  .rs-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0;font-size:13.5px}
+  .rs-switch{-webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:#ddd;
+    border:1px solid #ccc;position:relative;cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .rs-switch:after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;
+    border:1px solid #bbb;transition:transform .15s,background .15s}
+  .rs-switch:checked{background:var(--ink)}
+  .rs-switch:checked:after{transform:translateX(18px)}
+
+  .rs-btn{width:100%;border:1.5px solid var(--ink);background:#fff;color:var(--ink);border-radius:9px;
+    padding:9px 10px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px}
+  .rs-btn:hover{background:#f2f2f2}
+  .rs-btn.small{width:auto;padding:5px 10px;font-size:12px;margin-top:0}
+
+  .rs-select{width:100%;font:inherit;font-size:13.5px;padding:7px 8px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+  .rs-methods{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+  .rs-mbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 4px;font-size:12.5px;
+    font-weight:600;cursor:pointer;color:var(--ink2)}
+  .rs-mbtn.active{border-color:var(--ink);color:var(--ink);background:#f5f5f5;box-shadow:inset 0 0 0 1px var(--ink)}
+  .rs-formula{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+    padding:8px 6px;border:1px solid var(--line);border-radius:9px;background:#fafafa;margin-top:8px}
+
+  .rs-footeq{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.7}
+  .rs-footeq code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#222;background:#f5f5f5;
+    border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+  .rs-footeq .row{margin:3px 0}
+  .rs-note{margin-top:10px;font-size:11.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="rs-root" id="rs-root">
+  <div class="rs-head">
+    <div>
+      <div class="rs-title">Riemann-summer → det bestemte integral</div>
+      <div class="rs-sub">Træk i <b>a</b> og <b>b</b> på x-aksen, vælg en metode (venstre / højre / midtpunkt / over- / undersum) og
+        se hvordan summen <code>R(f, P)</code> nærmer sig <code>∫<sub>a</sub><sup>b</sup> f(x) dx</code> når <b>n → ∞</b>.</div>
+    </div>
+  </div>
+
+  <div class="rs-grid">
+    <div class="rs-stage">
+      <canvas id="rs-canvas"></canvas>
+      <div class="rs-hud">
+        <div class="rs-chip"><span class="k" id="rs-rk">R (venstre)</span><span class="v" id="rs-rv">–</span></div>
+        <div class="rs-chip"><span class="k">eksakt ∫</span><span class="v" id="rs-ev">–</span></div>
+        <div class="rs-chip"><span class="k">|fejl|</span><span class="v" id="rs-er">–</span></div>
+        <div class="rs-chip" id="rs-luchip" style="display:none"><span class="k">U(f,P) − L(f,P)</span><span class="v" id="rs-luv">–</span></div>
+      </div>
+      <div class="rs-hint">Træk i a/b · mellemrum = animer n · ↑/↓ = n ± 1</div>
+    </div>
+
+    <div class="rs-panel">
+      <div class="rs-card">
+        <h3>Funktion</h3>
+        <select class="rs-select" id="rs-fun"></select>
+        <div class="rs-formula" id="rs-funf">–</div>
+      </div>
+
+      <div class="rs-card">
+        <h3>Interval</h3>
+        <div class="rs-row"><label>a (nedre grænse)</label><span class="rs-val" id="rs-av">–</span></div>
+        <input class="rs-range" id="rs-as" type="range" step="0.05" />
+        <div class="rs-row" style="margin-top:10px"><label>b (øvre grænse)</label><span class="rs-val" id="rs-bv">–</span></div>
+        <input class="rs-range" id="rs-bs" type="range" step="0.05" />
+      </div>
+
+      <div class="rs-card">
+        <h3>Opdeling og metode</h3>
+        <div class="rs-row"><label>n antal inddelinger</label><span class="rs-val" id="rs-nv">12</span></div>
+        <input class="rs-range" id="rs-ns" type="range" min="1" max="240" step="1" value="12" />
+        <div class="rs-methods" id="rs-methods">
+          <button class="rs-mbtn active" data-m="left">Venstre</button>
+          <button class="rs-mbtn" data-m="right">Højre</button>
+          <button class="rs-mbtn" data-m="mid">Midtpunkt</button>
+          <button class="rs-mbtn" data-m="upper">Oversum</button>
+          <button class="rs-mbtn" data-m="lower">Undersum</button>
+          <button class="rs-mbtn" data-m="random">Tilfældig 🎲</button>
+        </div>
+        <button class="rs-btn" id="rs-anim">▶ Animer mod n → ∞ (mellemrum)</button>
+      </div>
+
+      <div class="rs-card">
+        <h3>Visning</h3>
+        <div class="rs-toggle"><label>Over- og undersum (L ≤ ∫ ≤ U)</label><input type="checkbox" class="rs-switch" id="rs-csand"></div>
+        <div class="rs-toggle"><label>Prøvepunkter x<sub>i</sub>*</label><input type="checkbox" class="rs-switch" id="rs-cpts" checked></div>
+        <div class="rs-toggle"><label>Gitter & akser</label><input type="checkbox" class="rs-switch" id="rs-cg" checked></div>
+        <div class="rs-micro" id="rs-mnote">Summen bruger prøvepunktet x<sub>i</sub>* i hvert delinterval [x<sub>i−1</sub>, x<sub>i</sub>].</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const canvas = document.getElementById('rs-canvas');
+  const ctx    = canvas.getContext('2d');
+  const E = id => document.getElementById(id);
+
+  // ---- monochrome palette ----
+  const INK='#111111', INK2='#3a3a3a', MUTED='#555555', FAINT='#9a9a9a';
+  const GRID='#ececec', AXIS='#c2c2c2';
+  const RECT_FILL='#eeeeee', RECT_NEG='#d7d7d7', RECT_TOP='#6f6f6f';
+  const SAND='#f7f7f7', SAND_LINE='#bbbbbb';
+
+  // ---- presets ----
+  const PRESETS = [
+    { name:'x³ + cos(x)  (fra lektionen)',
+      formula:'f(x) = x³ + cos(x)',
+      f: x => x*x*x + Math.cos(x),
+      a:2, b:5, view:[1.2, 5.8] },
+    { name:'1.2 + sin(x + x²/2)  (fra lektionen)',
+      formula:'f(x) = 1.2 + sin(x + ½x²)',
+      f: x => 1.2 + Math.sin(x + 0.5*x*x),
+      a:-1, b:2, view:[-2, 3] },
+    { name:'e^(−x²)  (normalfordelingen)',
+      formula:'f(x) = e^(−x²)',
+      f: x => Math.exp(-x*x),
+      a:-2, b:2, view:[-3, 3] },
+    { name:'1/x  (→ ln)',
+      formula:'f(x) = 1/x',
+      f: x => (x <= 0.02) ? NaN : 1/x,
+      a:0.5, b:4, view:[0.15, 5] }
+  ];
+  const METHODS = {
+    left:{label:'venstre', star:(x0,x1)=>x0},
+    right:{label:'højre', star:(x0,x1)=>x1},
+    mid:{label:'midtpunkt', star:(x0,x1)=>0.5*(x0+x1)},
+    upper:{label:'oversum', star:null},
+    lower:{label:'undersum', star:null},
+    random:{label:'tilfældig', star:null}
+  };
+
+  // ---- state ----
+  const state = { preset:0, a:2, b:5, n:12, method:'left',
+                  showSand:false, showPts:true, showGrid:true, seed:1 };
+  let anim = null;
+
+  const rnd01 = i => { const s = Math.sin(i*127.1 + state.n*311.7 + state.seed*74.7)*43758.5453; return s - Math.floor(s); };
+
+  function subMaxMin(f,x0,x1){
+    let mx=-Infinity, mnx=x0, mn=Infinity, mnx2=x0;
+    for(let k=0;k<=64;k++){
+      const x=x0+(x1-x0)*k/64, v=f(x);
+      if(isFinite(v)){ if(v>mx){mx=v; mnx=x;} if(v<mn){mn=v; mnx2=x;} }
+    }
+    return [mx, mn, mnx, mnx2];   // [max value, min value, x at max, x at min]
+  }
+  // one Riemann evaluation, reusable for L/U and self-test
+  function riemann(f,a,b,n,method){
+    const h=(b-a)/n; let s=0;
+    for(let i=0;i<n;i++){
+      const x0=a+i*h, x1=x0+h; let xs;
+      if(method==='upper'){ xs=subMaxMin(f,x0,x1)[2]; }
+      else if(method==='lower'){ xs=subMaxMin(f,x0,x1)[3]; }
+      else if(method==='random'){ xs=x0+rnd01(i)*h; }
+      else xs=METHODS[method].star(x0,x1);
+      const v=f(xs); if(isFinite(v)) s+=v*h;
+    }
+    return s;
+  }
+  // adaptive Simpson (reference value for the HUD chip)
+  function adaptiveSimpson(f,a,b,tol){
+    const sim=(fa,fm,fb,x0,x1)=>(x1-x0)/6*(fa+4*fm+fb);
+    function rec(x0,x1,fa,fm,fb,whole,tol,depth){
+      const m=0.5*(x0+x1), lm=0.5*(x0+m), rm=0.5*(m+x1);
+      const flm=f(lm), frm=f(rm);
+      if(!isFinite(flm)||!isFinite(frm)) return NaN;
+      const l=sim(fa,flm,fm,x0,m), r=sim(fm,frm,fb,m,x1);
+      if(depth>24 || Math.abs(l+r-whole)<15*tol) return l+r+(l+r-whole)/15;
+      return rec(x0,m,fa,flm,fm,l,tol/2,depth+1)+rec(m,x1,fm,frm,fb,r,tol/2,depth+1);
+    }
+    const m=0.5*(a+b), fm=f(m), fa=f(a), fb=f(b);
+    return rec(a,b,fa,fm,fb,sim(fa,fm,fb,a,b),tol,0);
+  }
+
+  function exact(){ return adaptiveSimpson(PRESETS[state.preset].f, state.a, state.b, 1e-11); }
+
+  // ---- sizing ----
+  let dpr=1;
+  function resize(){
+    const rect=canvas.getBoundingClientRect();
+    dpr=window.devicePixelRatio||1;
+    canvas.width=Math.max(1,Math.round(rect.width*dpr));
+    canvas.height=Math.max(1,Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    render();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  window.addEventListener('resize',resize);
+
+  // ---- mapping ----
+  let yMin=0,yMax=1,pad=0;
+  function fitY(){
+    const [vx0,vx1]=PRESETS[state.preset].view, W=canvas.clientWidth||800;
+    let lo=Infinity, hi=-Infinity;
+    for(let i=0;i<=400;i++){
+      const v=PRESETS[state.preset].f(vx0+(vx1-vx0)*i/400);
+      if(isFinite(v)){ lo=Math.min(lo,v); hi=Math.max(hi,v); }
+    }
+    if(!isFinite(lo)){ lo=0; hi=1; }
+    lo=Math.min(lo,0); hi=Math.max(hi,0);
+    pad=0.10*(hi-lo)+1e-9; yMin=lo-pad; yMax=hi+pad;
+  }
+  // real mappers
+  const PADX = 46;
+  let M=null;
+  function makeMap(){
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    const [x0,x1]=PRESETS[state.preset].view;
+    const sx=x=>PADX + (x-x0)/(x1-x0)*(W-2*PADX);
+    const sy=y=>H-padL - (y-yMin)/(yMax-yMin)*(H-padL-padB);
+    const ix=px=>x0+(px-PADX)/(W-2*PADX)*(x1-x0);
+    M={W,H,x0,x1,sx,sy,ix};
+  }
+  const padL=44, padB=30;
+
+  // ---- draw helpers ----
+  function line(a,b,w,c,dash){ ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+    ctx.lineWidth=w; ctx.strokeStyle=c; ctx.lineCap='round'; if(dash)ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); }
+  function niceStep(raw){ const p=Math.pow(10,Math.floor(Math.log10(raw))); const m=raw/p;
+    return (m<1.5?1:m<3.5?2:m<7.5?5:10)*p; }
+  function pill(txt,cx,cy,fs,bold){
+    fs=fs||11.5;
+    ctx.font=(bold?'bold ':'')+fs+'px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const w=ctx.measureText(txt).width, hs=fs/2, px=4, py=2.5;
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.roundRect(cx-w/2-px,cy-hs-py,w+2*px,fs+2*py,4); ctx.fill();
+    ctx.strokeStyle='#c9c9c9'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(txt,cx,cy);
+  }
+  function hatchRect(px,py,pw,ph){
+    ctx.save(); ctx.beginPath(); ctx.rect(px,py,pw,ph); ctx.clip();
+    ctx.fillStyle=RECT_NEG; ctx.fillRect(px,py,pw,ph);
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1.4;
+    for(let d=-ph; d<pw+ph; d+=7){ ctx.beginPath(); ctx.moveTo(px+d,py+ph); ctx.lineTo(px+d+ph,py); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // ---- render ----
+  function render(){
+    const W=canvas.clientWidth, H=canvas.clientHeight;
+    if(!W||!H) return;
+    fitY(); makeMap();
+    const {sx,sy,x0,x1}=M;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+
+    // grid + ticks
+    if(state.showGrid){
+      const stx=niceStep((x1-x0)/8), sty=niceStep((yMax-yMin)/6);
+      ctx.lineWidth=1; ctx.strokeStyle=GRID;
+      for(let u=Math.ceil(x0/stx)*stx; u<=x1; u+=stx){ ctx.beginPath(); ctx.moveTo(sx(u),sy(yMin)); ctx.lineTo(sx(u),sy(yMax)); ctx.stroke(); }
+      for(let v=Math.ceil(yMin/sty)*sty; v<=yMax; v+=sty){ ctx.beginPath(); ctx.moveTo(sx(x0),sy(v)); ctx.lineTo(sx(x1),sy(v)); ctx.stroke(); }
+      ctx.fillStyle=FAINT; ctx.font='10.5px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const dx=stx<1?Math.min(2,-Math.floor(Math.log10(stx))):0;
+      for(let u=Math.ceil(x0/stx)*stx; u<=x1; u+=stx){
+        ctx.strokeStyle=AXIS; ctx.beginPath(); ctx.moveTo(sx(u),sy(0)-5); ctx.lineTo(sx(u),sy(0)+5); ctx.stroke();
+        ctx.fillText(u.toFixed(dx), sx(u), sy(0)+8);
+      }
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      const dy=sty<1?Math.min(2,-Math.floor(Math.log10(sty))):0;
+      for(let v=Math.ceil(yMin/sty)*sty; v<=yMax; v+=sty){
+        ctx.strokeStyle=AXIS; ctx.beginPath(); ctx.moveTo(PADX-6,sy(v)); ctx.lineTo(PADX,sy(v)); ctx.stroke();
+        ctx.fillText(v.toFixed(dy), PADX-9, sy(v));
+      }
+      ctx.fillStyle=MUTED; ctx.font='12px ui-sans-serif,system-ui,sans-serif';
+      ctx.textAlign='right'; ctx.fillText('x', M.W-8, sy(0)-14);
+      ctx.textAlign='left';  ctx.fillText('y', PADX+6, 12);
+    }
+
+    const f=PRESETS[state.preset].f;
+    const a=Math.min(state.a,state.b), b=Math.max(state.a,state.b);
+    const n=state.n, h=(b-a)/n;
+
+    // sandwich region (between lower and upper staircase) — drawn first
+    if(state.showSand){
+      const Lu=[], Uu=[];
+      for(let i=0;i<n;i++){
+        const xa=a+i*h, xb=xa+h, [mx,mn]=subMaxMin(f,xa,xb);
+        Lu.push([xa,xb,mn]); Uu.push([xa,xb,mx]);
+      }
+      ctx.fillStyle=SAND;
+      for(let i=0;i<n;i++){
+        const [xa,xb,mx]=Uu[i], mn=Lu[i][2];
+        ctx.fillRect(sx(xa), sy(Math.max(mx,0)), Math.max(1,sx(xb)-sx(xa)), Math.abs(sy(mn)-sy(Math.max(mx,0))) || 1);
+      }
+      // staircases
+      ctx.strokeStyle=SAND_LINE; ctx.lineWidth=1;
+      ctx.beginPath(); Lu.forEach((r,i)=>{ if(i===0)ctx.moveTo(sx(r[0]),sy(r[2])); ctx.lineTo(sx(r[1]),sy(r[2])); }); ctx.stroke();
+      ctx.strokeStyle=INK2; ctx.setLineDash([5,4]); ctx.lineWidth=1.4;
+      ctx.beginPath(); Uu.forEach((r,i)=>{ if(i===0)ctx.moveTo(sx(r[0]),sy(r[1])); ctx.lineTo(sx(r[1]),sy(r[1])); }); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Riemann rectangles for the selected method
+    for(let i=0;i<n;i++){
+      const xa=a+i*h, xb=xa+h; let xs;
+      if(state.method==='upper') xs=subMaxMin(f,xa,xb)[2];
+      else if(state.method==='lower') xs=subMaxMin(f,xa,xb)[3];
+      else if(state.method==='random') xs=xa+rnd01(i)*h;
+      else xs=METHODS[state.method].star(xa,xb);
+      const yv=f(xs); if(!isFinite(yv)) continue;
+      const px=sx(xa), pw=Math.max(0.8, sx(xb)-px);
+      const py0=sy(0), py1=sy(yv);
+      if(yv>=0){ ctx.fillStyle=RECT_FILL; ctx.fillRect(px,py1,pw,py0-py1); }
+      else hatchRect(px,py0,pw,py1-py0);
+      ctx.strokeStyle=RECT_TOP; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(px,py1); ctx.lineTo(px+pw,py1); ctx.stroke();  // top edge = f(x_i*)
+      if(state.showPts){
+        ctx.beginPath(); ctx.arc(sx(xs),py1,2.6,0,Math.PI*2); ctx.fillStyle=INK; ctx.fill();
+      }
+    }
+
+    // curve
+    ctx.strokeStyle=INK; ctx.lineWidth=2.2; ctx.beginPath();
+    let started=false;
+    for(let px=padL; px<=M.W-padL; px+=1.5){
+      const xv=M.ix(px), yv=f(xv);
+      if(!isFinite(yv)){ started=false; continue; }
+      const py=sy(yv);
+      if(!started){ ctx.moveTo(px,py); started=true; } else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+
+    // x-axis emphasized inside [a,b]
+    line([sx(a),sy(0)],[sx(b),sy(0)],3,INK2);
+
+    // draggable a / b handles
+    [[a,'a',state.a],[b,'b',state.b]].forEach(([v,lab])=>{
+      const px=sx(v), py=sy(0);
+      ctx.beginPath(); ctx.arc(px,py,7,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+      ctx.strokeStyle=INK; ctx.lineWidth=2.4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(px,py,2.2,0,Math.PI*2); ctx.fillStyle=INK; ctx.fill();
+      pill(lab+' = '+v.toFixed(2), px, sy(0)+ (lab==='a'? -20 : -20), 11.5, true);
+      ctx.strokeStyle=FAINT; ctx.setLineDash([3,4]); ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px, sy(f(v)) ); ctx.stroke(); ctx.setLineDash([]);
+    });
+
+    updReadout();
+  }
+
+  // ---- readouts ----
+  // 3 decimaler i normal notation; skift til videnskabelig notation først ved meget små tal
+  function fmt3(v){
+    if(!isFinite(v)) return '–';
+    if(v !== 0 && Math.abs(v) < 0.0005) return v.toExponential(2);
+    return v.toFixed(3);
+  }
+  function updReadout(){
+    const p=PRESETS[state.preset], f=p.f;
+    const a=Math.min(state.a,state.b), b=Math.max(state.a,state.b);
+    const R=riemann(f,a,b,state.n,state.method);
+    const ex=exact();
+    const L=riemann(f,a,b,state.n,'lower'), U=riemann(f,a,b,state.n,'upper');
+    E('rs-rk').textContent='R ('+METHODS[state.method].label+')';
+    E('rs-rv').textContent=R.toFixed(4);
+    E('rs-ev').textContent=isFinite(ex)?ex.toFixed(4):'–';
+    E('rs-er').textContent=isFinite(ex)?fmt3(Math.abs(R-ex)):'–';
+    E('rs-luchip').style.display=state.showSand?'':'none';
+    if(state.showSand) E('rs-luv').textContent=(U-L).toFixed(4);
+    E('rs-av').textContent=state.a.toFixed(2);
+    E('rs-bv').textContent=state.b.toFixed(2);
+    E('rs-nv').textContent=state.n;
+    E('rs-ns').value=state.n;
+    E('rs-as').value=state.a; E('rs-bs').value=state.b;
+    E('rs-funf').textContent=p.formula;
+    E('rs-mnote').innerHTML = state.showSand
+      ? 'L = undersum ('+L.toFixed(3)+'), U = oversum ('+U.toFixed(3)+'): <b>'+L.toFixed(3)+' ≤ ∫ ≤ '+U.toFixed(3)+'</b>'
+      : 'Summen bruger prøvepunktet x<sub>i</sub>* i hvert delinterval [x<sub>i−1</sub>, x<sub>i</sub>].';
+  }
+
+  // ---- controls ----
+  const sel=E('rs-fun');
+  PRESETS.forEach((p,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=p.name; sel.appendChild(o); });
+  sel.addEventListener('change',()=>{
+    state.preset=+sel.value;
+    const p=PRESETS[state.preset];
+    state.a=p.a; state.b=p.b;
+    E('rs-as').min=p.view[0]; E('rs-as').max=p.view[1];
+    E('rs-bs').min=p.view[0]; E('rs-bs').max=p.view[1];
+    render();
+  });
+  sel.value='0'; sel.dispatchEvent(new Event('change'));
+
+  E('rs-as').addEventListener('input',e=>{ state.a=Math.min(+e.target.value, state.b-0.1); render(); });
+  E('rs-bs').addEventListener('input',e=>{ state.b=Math.max(+e.target.value, state.a+0.1); render(); });
+  E('rs-ns').addEventListener('input',e=>{ state.n=+e.target.value; render(); });
+
+  document.querySelectorAll('.rs-mbtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.rs-mbtn').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      state.method=btn.dataset.m;
+      if(state.method==='random') state.seed=Math.random()*1000|0;
+      render();
+    });
+  });
+  E('rs-csand').addEventListener('change',e=>{ state.showSand=e.target.checked; render(); });
+  E('rs-cpts').addEventListener('change',e=>{ state.showPts=e.target.checked; render(); });
+  E('rs-cg').addEventListener('change',e=>{ state.showGrid=e.target.checked; render(); });
+
+  function stopAnim(){ if(anim){ cancelAnimationFrame(anim); anim=null; E('rs-anim').textContent='▶ Animer mod n → ∞ (mellemrum)'; } }
+  function startAnim(){
+    stopAnim();
+    if(state.n>=240) state.n=1;
+    E('rs-anim').textContent='⏸ Stop animation';
+    const tick=()=>{
+      state.n=Math.min(240, Math.max(state.n+1, Math.round(state.n*1.07)));
+      if(state.n>=240){ stopAnim(); render(); return; }
+      render();
+      anim=requestAnimationFrame(tick);
+    };
+    anim=requestAnimationFrame(tick);
+  }
+  E('rs-anim').addEventListener('click',()=> anim?stopAnim():startAnim());
+
+  // ---- pointer: drag a / b ----
+  let drag=null;
+  function hit(px,py){
+    const a=Math.min(state.a,state.b), b=Math.max(state.a,state.b);
+    for(const [v,lab] of [[a,'a'],[b,'b']]){
+      if(Math.hypot(px-M.sx(v), py-M.sy(0))<=16) return lab;
+    }
+    return null;
+  }
+  canvas.addEventListener('pointerdown',ev=>{
+    const r=canvas.getBoundingClientRect();
+    const lab=hit(ev.clientX-r.left, ev.clientY-r.top);
+    if(lab){ drag=lab; canvas.setPointerCapture(ev.pointerId); canvas.classList.add('grab'); }
+  });
+  canvas.addEventListener('pointermove',ev=>{
+    if(!drag) return;
+    const r=canvas.getBoundingClientRect();
+    const xv=M.ix(ev.clientX-r.left);
+    if(drag==='a') state.a=Math.max(M.x0, Math.min(xv, state.b-0.1));
+    else state.b=Math.min(M.x1, Math.max(xv, state.a+0.1));
+    render();
+  });
+  const endDrag=()=>{ drag=null; canvas.classList.remove('grab'); };
+  canvas.addEventListener('pointerup',endDrag);
+  canvas.addEventListener('pointercancel',endDrag);
+
+  window.addEventListener('keydown',ev=>{
+    if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if(ev.code==='Space'){ ev.preventDefault(); anim?stopAnim():startAnim(); }
+    if(ev.key==='ArrowUp'||ev.key==='ArrowRight'){ state.n=Math.min(240,state.n+1); render(); ev.preventDefault(); }
+    if(ev.key==='ArrowDown'||ev.key==='ArrowLeft'){ state.n=Math.max(1,state.n-1); render(); ev.preventDefault(); }
+  });
+
+  // ---- boot + API ----
+  resize();
+  window.rsSums = {
+    state, PRESETS,
+    riemann, exact,
+    setPreset(i){ sel.value=String(i); sel.dispatchEvent(new Event('change')); },
+    setN(n){ state.n=Math.max(1,Math.min(240,n|0)); render(); },
+    setMethod(m){ const b=document.querySelector('.rs-mbtn[data-m="'+m+'"]'); if(b) b.click(); },
+    setInterval(a,b){ state.a=a; state.b=b; render(); },
+    setSandwich(on){ E('rs-csand').checked=!!on; state.showSand=!!on; render(); },
+    getValues(){
+      const p=PRESETS[state.preset];
+      const a=Math.min(state.a,state.b), b=Math.max(state.a,state.b);
+      return { n:state.n, method:state.method, a, b,
+        R:riemann(p.f,a,b,state.n,state.method),
+        exact:exact(),
+        L:riemann(p.f,a,b,state.n,'lower'),
+        U:riemann(p.f,a,b,state.n,'upper') };
+    },
+    selfTest(){
+      const out={checks:[], ok:true};
+      const chk=(name,cond,val)=>{ out.checks.push({name, pass:!!cond, val}); if(!cond) out.ok=false; };
+      const sq = x=>x*x;
+      const exSq = 8/3;                                  // ∫₀² x² dx
+      const L10 = riemann(sq,0,2,10,'left');             // increasing f: left ≥ exact ≥ right
+      const R10 = riemann(sq,0,2,10,'right');
+      chk('left ≤ exact ≤ right (x² voksende, n=10)', L10<=exSq && exSq<=R10, [L10,exSq,R10]);
+      const M10 = riemann(sq,0,2,10,'mid');
+      chk('midpoint error < left error', Math.abs(M10-exSq) < Math.abs(L10-exSq), [Math.abs(M10-exSq), Math.abs(L10-exSq)]);
+      const wavy = PRESETS[1].f, wa=-1, wb=2, exW=adaptiveSimpson(wavy,wa,wb,1e-11);
+      const U=riemann(wavy,wa,wb,20,'upper'), L=riemann(wavy,wa,wb,20,'lower');
+      chk('L ≤ exact ≤ U (wavy, n=20)', L<=exW && exW<=U, [L,exW,U]);
+      const M1000=riemann(wavy,wa,wb,1000,'mid');
+      chk('midpoint converges (n=1000, |err|<1e-4)', Math.abs(M1000-exW)<1e-4, Math.abs(M1000-exW));
+      const g=x=>Math.exp(-x*x), exG=adaptiveSimpson(g,-2,2,1e-11);
+      const exGref = Math.sqrt(Math.PI)*0.9953222650189527;  // sqrt(pi)*erf(2)
+      chk('gaussian ∫_{-2}^{2} ≈ √π·erf(2) (|err|<1e-6)', Math.abs(exG-exGref)<1e-6, [exG, exGref]);
+      return out;
+    }
+  };
+  render();
+})();
+</script>
+</body>
+</html>
